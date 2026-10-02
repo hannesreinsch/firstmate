@@ -3444,15 +3444,19 @@ herdr_projection_existing_meta_allows_flat() { # <meta>
 
 # The nearest existing directory at or above the Treehouse pool for this
 # project, resolved the way treehouse resolves it but without acquiring a slot:
-# TREEHOUSE_ROOT, else the repository's treehouse.toml `root`, else $HOME, with a
-# relative root taken from the repository root; the pool is <root>/.treehouse.
+# TREEHOUSE_ROOT, else the repository's treehouse.toml `root`, else the user's
+# ~/.config/treehouse/config.toml `root`, else $HOME, with a relative root taken
+# from the repository root; the pool is <root>/.treehouse. Treehouse has no
+# command that prints this root without creating the pool, so it is read here.
 spawn_treehouse_pool_disk_path() {
-  local top root dir
+  local top root dir cfg
   top=$(git -C "$PROJ_ABS" rev-parse --show-toplevel 2>/dev/null) || top=$PROJ_ABS
   root=${TREEHOUSE_ROOT:-}
-  if [ -z "$root" ] && [ -f "$top/treehouse.toml" ]; then
-    root=$(sed -n 's/^[[:space:]]*root[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$top/treehouse.toml" | head -n 1)
-  fi
+  for cfg in "$top/treehouse.toml" "${HOME:-}/.config/treehouse/config.toml"; do
+    if [ -z "$root" ] && [ -f "$cfg" ]; then
+      root=$(sed -n 's/^[[:space:]]*root[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$cfg" | head -n 1)
+    fi
+  done
   root=${root:-${HOME:-/}}
   case "$root" in /*) ;; *) root="$top/$root" ;; esac
   dir="$root/.treehouse"

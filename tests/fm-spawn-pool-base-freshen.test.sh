@@ -204,6 +204,18 @@ test_free_disk_floor_measures_the_pool_disk() {
   status=$?
   expect_code 0 "$status" "a full project disk must not refuse a pool with room"$'\n'"$out"
   assert_contains "$out" "spawned $id" "the spawn into a pool with room did not report success"
+
+  # A pool root set only in the user's treehouse config is the disk measured.
+  id='config-pool-disk-full-r1'
+  fm_test_spawn_brief "$HOME_DIR" "$id"
+  mkdir -p "$HOME_DIR/user-home/.config/treehouse"
+  printf 'root = "%s"\n' "$pool_disk/config-root" > "$HOME_DIR/user-home/.config/treehouse/config.toml"
+  out=$(TREEHOUSE_ROOT='' FM_FAKE_DF_FULL_DIR=$pool_disk run_spawn "$id" --scout)
+  status=$?
+  rm -f "$HOME_DIR/user-home/.config/treehouse/config.toml"
+  [ "$status" -ne 0 ] || fail "spawn launched into a configured pool whose disk is under the floor"$'\n'"$out"
+  assert_contains "$out" "refused by the free-disk check" \
+    "a full configured pool disk was not refused by the free-disk check"$'\n'"$out"
   pass "the free-disk floor measures the Treehouse pool disk before any work copy is acquired"
 }
 
