@@ -50,6 +50,10 @@ test_check_floor() {
   FM_FAKE_DF_AVAIL_KIB=$((3 * 1048576)) run_disk "$config" check "$TMP_ROOT" 2>/dev/null
   expect_code 0 $? "check: a configured floor replaces the default"
 
+  printf '0\n10\n' > "$config/min-free-disk-gib"
+  FM_FAKE_DF_AVAIL_KIB=1 run_disk "$config" check "$TMP_ROOT" 2>/dev/null
+  expect_code 2 $? "check: a floor file with two values refuses rather than reading the first"
+
   printf 'lots\n' > "$config/min-free-disk-gib"
   FM_FAKE_DF_AVAIL_KIB=$((100 * 1048576)) run_disk "$config" check "$TMP_ROOT" 2>/dev/null
   expect_code 2 $? "check: a malformed floor refuses rather than guessing"
@@ -71,13 +75,19 @@ test_reclaim() {
   git init -q "$repo"
   printf '%s\n' node_modules/ .next .venv > "$repo/.gitignore"
   mkdir -p "$repo/web/node_modules/dep" "$repo/web/.next/cache" "$repo/tracked/node_modules" \
-    "$repo/.venv" "$repo/plain/.turbo" "$repo/real-deps"
+    "$repo/.venv" "$repo/plain/.turbo" "$repo/real-deps" "$repo/nested/node_modules/linked-pkg" \
+    "$repo/gitfile/.next"
   printf 'x\n' > "$repo/web/node_modules/dep/index.js"
   printf 'x\n' > "$repo/web/.next/cache/blob"
   printf 'vendored\n' > "$repo/tracked/node_modules/vendored.js"
   printf 'x\n' > "$repo/.venv/keep"
   printf 'x\n' > "$repo/plain/.turbo/keep"
   printf 'x\n' > "$repo/real-deps/keep"
+  git init -q "$repo/nested/node_modules/linked-pkg"
+  printf 'x\n' > "$repo/nested/node_modules/linked-pkg/src.js"
+  git -C "$repo/nested/node_modules/linked-pkg" add src.js
+  git -C "$repo/nested/node_modules/linked-pkg" commit -qm nested
+  printf 'gitdir: /elsewhere\n' > "$repo/gitfile/.next/.git"
   ln -s "$repo/real-deps" "$repo/web/linked_node_modules"
   ln -s "$repo/real-deps" "$repo/node_modules"
   git -C "$repo" add .gitignore plain/.turbo/keep real-deps/keep
@@ -91,6 +101,9 @@ test_reclaim() {
   [ -e "$repo/tracked/node_modules/vendored.js" ] || fail "reclaim: deleted a directory holding a tracked file"
   [ -e "$repo/plain/.turbo/keep" ] || fail "reclaim: deleted a listed directory git does not ignore"
   [ -e "$repo/.venv/keep" ] || fail "reclaim: deleted an ignored directory that is not listed"
+  [ -e "$repo/nested/node_modules/linked-pkg/src.js" ] \
+    || fail "reclaim: deleted a directory holding a nested repository"
+  [ -e "$repo/gitfile/.next/.git" ] || fail "reclaim: deleted a directory holding a .git file"
   [ -L "$repo/node_modules" ] && [ -e "$repo/real-deps/keep" ] \
     || fail "reclaim: followed or removed a symlink"
   case "$err" in
@@ -117,7 +130,7 @@ test_reclaim() {
   run_disk "$config" reclaim "$TMP_ROOT/not-a-repo" 2>/dev/null
   expect_code 0 $? "reclaim: a non-repository directory is skipped, not refused"
   [ -d "$TMP_ROOT/not-a-repo/node_modules" ] || fail "reclaim: deleted from a directory git cannot vouch for"
-  pass "reclaim deletes only listed, ignored, untracked build output directories"
+  pass "reclaim deletes only listed, ignored, untracked build output directories with no nested repository"
 }
 
 test_check_floor

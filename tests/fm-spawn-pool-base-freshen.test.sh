@@ -163,6 +163,43 @@ test_linked_spawning_home_rejects_primary_before_refresh() {
   done
 }
 
+# A fake df that reports 1 KiB free for paths under FM_FAKE_DF_FULL_DIR and
+# plenty everywhere else, so the project clone and the pool read as two disks.
+fake_df_full_under() {  # <fakebin>
+  cat > "$1/df" <<'SH'
+#!/usr/bin/env bash
+path=${!#}
+avail=$((100 * 1048576))
+case "$path" in "$FM_FAKE_DF_FULL_DIR" | "$FM_FAKE_DF_FULL_DIR"/*) avail=1 ;; esac
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+printf '/dev/fake 200000000 1 %s 1%% /\n' "$avail"
+SH
+  chmod +x "$1/df"
+}
+
+test_free_disk_floor_measures_the_pool_disk() {
+  local rec id out status
+  id='pool-disk-full-r1'
+  rec=$(make_case pool-disk-full "$id")
+  read_case_record "$rec"
+  fake_df_full_under "$FAKEBIN_DIR"
+
+  out=$(FM_FAKE_DF_FULL_DIR=$POOL_DIR run_spawn "$id" --scout)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn launched into a pool whose disk is under the floor"$'\n'"$out"
+  assert_contains "$out" "refused by the free-disk check" \
+    "a full pool disk was not refused by the free-disk check"$'\n'"$out"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a free-disk refusal published task metadata"
+
+  id='project-disk-full-r1'
+  fm_test_spawn_brief "$HOME_DIR" "$id"
+  out=$(FM_FAKE_DF_FULL_DIR=$PROJECT_DIR run_spawn "$id" --scout)
+  status=$?
+  expect_code 0 "$status" "a full project disk must not refuse a pool with room"$'\n'"$out"
+  assert_contains "$out" "spawned $id" "the spawn into a pool with room did not report success"
+  pass "the free-disk floor measures the disk holding the new work copy, not the project clone"
+}
+
 test_stale_pool_base_refreshes_before_branching() {
   local rec id out status current branch_head
   id='pool-current-base-r1'
@@ -746,6 +783,7 @@ test_pool_slot_claim_follows_the_spawn_outcome() {
 test_remote_seeded_home_spawns_from_treehouse_pool
 test_pool_slot_claim_follows_the_spawn_outcome
 test_linked_spawning_home_rejects_primary_before_refresh
+test_free_disk_floor_measures_the_pool_disk
 test_stale_pool_base_refreshes_before_branching
 test_non_main_default_branch_refreshes_before_branching
 test_direct_pr_and_scout_refresh_before_launch

@@ -24,12 +24,14 @@
 # every worker's tests with ENOSPC at once. bin/fm-teardown.sh runs `reclaim` on a
 # task's own work copy just before returning it, after every unlanded-work refusal
 # has passed and the copy's processes are reaped, and bin/fm-spawn.sh runs `check`
-# before it creates a new work copy.
+# on a new work copy before its worker starts.
 #
 # What reclaim may delete, and only this:
 #   - a real directory (never a symlink) whose base name is in the reclaim list,
 #   - that `git check-ignore` reports ignored in <worktree>'s repository,
-#   - and under which `git ls-files` lists no tracked file.
+#   - under which `git ls-files` lists no tracked file,
+#   - and that holds no nested repository (no .git directory or file anywhere
+#     inside it), whose own tracked files and history the outer git cannot see.
 # The walk never enters .git and stops at the first matching directory on each
 # branch, so nested matches are removed with their parent. Everything it deletes
 # is rebuilt by the project's install or build step; a path git cannot vouch for
@@ -71,7 +73,7 @@ min_free_gib() {
     printf '%s\n' "$DEFAULT_MIN_FREE_GIB"
     return 0
   fi
-  value=$(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$file" | grep -v '^$' | head -n 1)
+  value=$(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$file" | grep -v '^$')
   case "$value" in
     '' | *[!0-9]*) die "$file must hold one non-negative integer (GiB); found '${value}'" ;;
   esac
@@ -139,6 +141,7 @@ EOF
   while IFS= read -r -d '' p; do
     git -C "$wt" check-ignore -q -- "$p" 2>/dev/null || continue
     [ -z "$(git -C "$wt" ls-files -- "$p" 2>/dev/null | head -n 1)" ] || continue
+    [ -z "$(find "$p" -name .git -print -quit 2>/dev/null)" ] || continue
     kib=$(du -sk "$p" 2>/dev/null | awk '{ print $1 }')
     rm -rf -- "$p" 2>/dev/null || true
     if [ -e "$p" ]; then
