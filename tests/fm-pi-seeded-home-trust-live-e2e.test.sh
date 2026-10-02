@@ -64,7 +64,7 @@ capture_until() {  # <session> <regex> <seconds> <out-file>
   local session=$1 expect=$2 seconds=$3 out=$4
   local target="$session:w" tail='' i limit
   limit=$((seconds * 5))
-  for i in $(seq 1 "$limit"); do
+  for ((i = 0; i < limit; i++)); do
     tail=$("$REAL_TMUX" -L "$SOCKET" capture-pane -p -t "$target" -S -80 2>/dev/null) || true
     if printf '%s' "$tail" | grep -qiE "$expect"; then
       printf '%s' "$tail" > "$out"
