@@ -918,7 +918,7 @@ A pooled work copy keeps gitignored files when it returns to the pool, so a fini
 Two optional local, gitignored files tune the guards against that.
 
 `config/min-free-disk-gib` holds one integer floor in GiB, 5 when absent and 0 to disable.
-A new spawn refuses before its worker starts when the disk holding its new work copy has less free space than the floor, and firstmate runs the same check before starting a validation run.
+A new spawn refuses before it acquires a work copy when the disk that will hold the copy (the Treehouse pool, or a secondmate home) has less free space than the floor, and firstmate runs the same check before starting a validation run.
 
 `config/reclaim-build-output` lists directory names, one per line, that cleanup deletes from a task's own work copy just before returning it to the pool.
 When absent the list is `node_modules`, `.next`, and `.turbo`; a file with no names disables the deletion.

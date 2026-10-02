@@ -88,6 +88,10 @@ test_reclaim() {
   git -C "$repo/nested/node_modules/linked-pkg" add src.js
   git -C "$repo/nested/node_modules/linked-pkg" commit -qm nested
   printf 'gitdir: /elsewhere\n' > "$repo/gitfile/.next/.git"
+  mkdir -p "$repo/locked/node_modules/sealed"
+  printf 'x\n' > "$repo/locked/node_modules/keep.js"
+  printf 'x\n' > "$repo/locked/node_modules/sealed/hidden.js"
+  chmod 000 "$repo/locked/node_modules/sealed"
   ln -s "$repo/real-deps" "$repo/web/linked_node_modules"
   ln -s "$repo/real-deps" "$repo/node_modules"
   git -C "$repo" add .gitignore plain/.turbo/keep real-deps/keep
@@ -104,6 +108,9 @@ test_reclaim() {
   [ -e "$repo/nested/node_modules/linked-pkg/src.js" ] \
     || fail "reclaim: deleted a directory holding a nested repository"
   [ -e "$repo/gitfile/.next/.git" ] || fail "reclaim: deleted a directory holding a .git file"
+  chmod 755 "$repo/locked/node_modules/sealed"
+  [ -e "$repo/locked/node_modules/keep.js" ] && [ -e "$repo/locked/node_modules/sealed/hidden.js" ] \
+    || fail "reclaim: deleted a directory whose nested-repository search failed"
   [ -L "$repo/node_modules" ] && [ -e "$repo/real-deps/keep" ] \
     || fail "reclaim: followed or removed a symlink"
   case "$err" in
@@ -130,7 +137,7 @@ test_reclaim() {
   run_disk "$config" reclaim "$TMP_ROOT/not-a-repo" 2>/dev/null
   expect_code 0 $? "reclaim: a non-repository directory is skipped, not refused"
   [ -d "$TMP_ROOT/not-a-repo/node_modules" ] || fail "reclaim: deleted from a directory git cannot vouch for"
-  pass "reclaim deletes only listed, ignored, untracked build output directories with no nested repository"
+  pass "reclaim deletes only listed, ignored, untracked build output directories with no nested repository, and keeps one it cannot search"
 }
 
 test_check_floor

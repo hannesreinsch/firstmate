@@ -178,26 +178,33 @@ SH
 }
 
 test_free_disk_floor_measures_the_pool_disk() {
-  local rec id out status
+  local rec id out status pool_disk pane_log
   id='pool-disk-full-r1'
   rec=$(make_case pool-disk-full "$id")
   read_case_record "$rec"
   fake_df_full_under "$FAKEBIN_DIR"
+  pool_disk="$CASE_DIR/pool-disk"
+  pane_log="$CASE_DIR/pane.log"
+  mkdir -p "$pool_disk"
 
-  out=$(FM_FAKE_DF_FULL_DIR=$POOL_DIR run_spawn "$id" --scout)
+  # The pool root does not exist yet, so the check measures its nearest
+  # existing parent, and it must refuse before treehouse is ever asked for a copy.
+  out=$(TREEHOUSE_ROOT="$pool_disk/root" FM_FAKE_DF_FULL_DIR=$pool_disk FM_FAKE_PANE_LOG=$pane_log \
+    run_spawn "$id" --scout)
   status=$?
   [ "$status" -ne 0 ] || fail "spawn launched into a pool whose disk is under the floor"$'\n'"$out"
   assert_contains "$out" "refused by the free-disk check" \
     "a full pool disk was not refused by the free-disk check"$'\n'"$out"
+  [ ! -s "$pane_log" ] || fail "a free-disk refusal typed into a pane:"$'\n'"$(cat "$pane_log")"
   [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a free-disk refusal published task metadata"
 
   id='project-disk-full-r1'
   fm_test_spawn_brief "$HOME_DIR" "$id"
-  out=$(FM_FAKE_DF_FULL_DIR=$PROJECT_DIR run_spawn "$id" --scout)
+  out=$(TREEHOUSE_ROOT="$pool_disk/root" FM_FAKE_DF_FULL_DIR=$PROJECT_DIR run_spawn "$id" --scout)
   status=$?
   expect_code 0 "$status" "a full project disk must not refuse a pool with room"$'\n'"$out"
   assert_contains "$out" "spawned $id" "the spawn into a pool with room did not report success"
-  pass "the free-disk floor measures the disk holding the new work copy, not the project clone"
+  pass "the free-disk floor measures the Treehouse pool disk before any work copy is acquired"
 }
 
 test_stale_pool_base_refreshes_before_branching() {

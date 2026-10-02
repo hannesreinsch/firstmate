@@ -24,14 +24,15 @@
 # every worker's tests with ENOSPC at once. bin/fm-teardown.sh runs `reclaim` on a
 # task's own work copy just before returning it, after every unlanded-work refusal
 # has passed and the copy's processes are reaped, and bin/fm-spawn.sh runs `check`
-# on a new work copy before its worker starts.
+# on the disk that will hold a new work copy before it acquires that copy.
 #
 # What reclaim may delete, and only this:
 #   - a real directory (never a symlink) whose base name is in the reclaim list,
 #   - that `git check-ignore` reports ignored in <worktree>'s repository,
 #   - under which `git ls-files` lists no tracked file,
 #   - and that holds no nested repository (no .git directory or file anywhere
-#     inside it), whose own tracked files and history the outer git cannot see.
+#     inside it), whose own tracked files and history the outer git cannot see;
+#     a search for one that fails anywhere leaves the directory alone.
 # The walk never enters .git and stops at the first matching directory on each
 # branch, so nested matches are removed with their parent. Everything it deletes
 # is rebuilt by the project's install or build step; a path git cannot vouch for
@@ -123,7 +124,7 @@ cmd_check() {
 }
 
 cmd_reclaim() {
-  local wt="$1" names find_args=() name p kib total_kib=0 count=0
+  local wt="$1" names find_args=() name p nested kib total_kib=0 count=0
   [ -d "$wt" ] || die "reclaim: no such directory '$wt'"
   wt=$(cd "$wt" && pwd -P) || die "reclaim: cannot resolve '$wt'"
   if [ "$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null)" != "$wt" ]; then
@@ -141,7 +142,8 @@ EOF
   while IFS= read -r -d '' p; do
     git -C "$wt" check-ignore -q -- "$p" 2>/dev/null || continue
     [ -z "$(git -C "$wt" ls-files -- "$p" 2>/dev/null | head -n 1)" ] || continue
-    [ -z "$(find "$p" -name .git -print -quit 2>/dev/null)" ] || continue
+    nested=$(find "$p" -name .git -prune -print 2>/dev/null) || continue
+    [ -z "$nested" ] || continue
     kib=$(du -sk "$p" 2>/dev/null | awk '{ print $1 }')
     rm -rf -- "$p" 2>/dev/null || true
     if [ -e "$p" ]; then

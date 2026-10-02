@@ -3442,6 +3442,44 @@ herdr_projection_existing_meta_allows_flat() { # <meta>
   esac
 }
 
+# The nearest existing directory at or above the Treehouse pool for this
+# project, resolved the way treehouse resolves it but without acquiring a slot:
+# TREEHOUSE_ROOT, else the repository's treehouse.toml `root`, else $HOME, with a
+# relative root taken from the repository root; the pool is <root>/.treehouse.
+spawn_treehouse_pool_disk_path() {
+  local top root dir
+  top=$(git -C "$PROJ_ABS" rev-parse --show-toplevel 2>/dev/null) || top=$PROJ_ABS
+  root=${TREEHOUSE_ROOT:-}
+  if [ -z "$root" ] && [ -f "$top/treehouse.toml" ]; then
+    root=$(sed -n 's/^[[:space:]]*root[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$top/treehouse.toml" | head -n 1)
+  fi
+  root=${root:-${HOME:-/}}
+  case "$root" in /*) ;; *) root="$top/$root" ;; esac
+  dir="$root/.treehouse"
+  while [ ! -d "$dir" ] && [ "$dir" != / ]; do dir=$(dirname "$dir"); done
+  printf '%s\n' "$dir"
+}
+
+# Free-space floor (bin/fm-disk.sh owns the floor and its config). A new work
+# copy's install, build, and tests can fill a nearly full disk and fail every
+# live worker with ENOSPC, so refuse before any endpoint, worktree, or record
+# exists. The disk measured is the one that will hold the work copy: the
+# Treehouse pool, which can sit on a different filesystem from the project
+# clone, or the home itself for a secondmate. Orca places its worktree itself,
+# so an Orca spawn measures the project clone. A relaunch reuses its recorded
+# copy and is not refused.
+if [ "$RELAUNCH" -eq 0 ]; then
+  if [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+    SPAWN_DISK_PATH=$(spawn_treehouse_pool_disk_path)
+  else
+    SPAWN_DISK_PATH=$PROJ_ABS
+  fi
+  FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-disk.sh" check "$SPAWN_DISK_PATH" || {
+    echo "error: spawn of $ID refused by the free-disk check above" >&2
+    exit 1
+  }
+fi
+
 # Backlog preflight (bin/fm-backlog-transition-lib.sh). This spawn is about to
 # become the sole owner of the row's In-flight transition, so prove the row is
 # transitionable BEFORE any endpoint, worktree, or record exists: a refusal here
@@ -4300,18 +4338,6 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
     fi
     SPAWN_SLOT_CLAIMED=1
   fi
-fi
-# Free-space floor (bin/fm-disk.sh owns the floor and its config). A new work
-# copy's install, build, and tests can fill a nearly full disk and fail every
-# live worker with ENOSPC, so refuse before the worker starts. The disk measured
-# is the one holding the acquired work copy itself, because a Treehouse pool can
-# sit on a different filesystem from the project clone. A relaunch reuses its
-# recorded copy and is not refused.
-if [ "$RELAUNCH" -eq 0 ]; then
-  FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-disk.sh" check "$WT" || {
-    echo "error: spawn of $ID refused by the free-disk check above; inspect window $T" >&2
-    exit 1
-  }
 fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" || exit 1
