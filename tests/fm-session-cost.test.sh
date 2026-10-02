@@ -28,11 +28,14 @@ assistant_line() {  # <cache-read> [sidechain]
     "${2:-false}" "$1"
 }
 
-# write_task <home> <id> <harness> <kind> <spawn-epoch>
+# write_task <home> <id> <harness> <kind> <spawn-epoch> [busy-state]
+# Also arms the task's semantic busy record (default idle: its turn ended).
 write_task() {
   fm_write_meta "$1/state/$2.meta" \
     "window=s:fm-$2" "worktree=$1/wt-$(basename "$1")" "harness=$3" "kind=$4" \
     "spawn_gen=s$5.1.1"
+  "$ROOT/bin/fm-busy-event.sh" arm "$1/state" "$2" --state "${6:-idle}" \
+    --source claude-hook --event stop >/dev/null || fail "could not arm the busy record for $2"
 }
 
 # write_transcript <home> <name> <mtime-epoch> <line>...
@@ -199,6 +202,68 @@ test_invalid_config_refuses() {
   pass "an invalid config refuses instead of guessing"
 }
 
+test_ambiguous_transcript_is_unknown() {
+  local home out
+  home=$(make_home ambiguous)
+  : > "$home/config/session-cache"
+  write_task "$home" w1 claude ship $((NOW - 7200))
+  write_transcript "$home" worker $((NOW - 600)) "$(assistant_line 120000)"
+  write_transcript "$home" other $((NOW - 400)) "$(assistant_line 900000)"
+  out=$(run_cost "$home" show w1)
+  assert_equals "status=unknown detail=ambiguous-transcript" "$out" \
+    "two sessions written in one local copy since launch must not be attributed to the worker"
+  out=$(FM_SESSION_COST_SECS=0 run_cost "$home" scan)
+  assert_equals "" "$out" "scan must not surface a session it cannot attribute"
+  pass "an ambiguous transcript reports unknown instead of guessing"
+}
+
+test_scan_skips_a_busy_worker() {
+  local home out gen
+  home=$(make_home busy-worker)
+  : > "$home/config/session-cache"
+  write_task "$home" w1 claude ship 1 busy
+  write_transcript "$home" a $((NOW - 1800)) "$(assistant_line 320000)"
+  out=$(FM_SESSION_COST_SECS=0 run_cost "$home" scan)
+  assert_equals "" "$out" "a worker inside a long tool call must not be surfaced as idle"
+  gen=$(cat "$home/state/w1.busy-gen")
+  "$ROOT/bin/fm-busy-event.sh" apply "$home/state" w1 idle --gen "$gen" \
+    --source claude-hook --event stop >/dev/null || fail "could not record the turn end"
+  out=$(FM_SESSION_COST_SECS=0 run_cost "$home" scan)
+  assert_contains "$out" "check: session-cost: w1" "the same worker should surface once its turn ended"
+  pass "scan waits for the worker's turn to end"
+}
+
+test_concurrent_scans_queue_one_notice() {
+  local home i rows
+  home=$(make_home concurrent)
+  : > "$home/config/session-cache"
+  write_task "$home" w1 claude ship 1
+  write_transcript "$home" a $((NOW - 600)) "$(assistant_line 320000)"
+  for i in 1 2 3 4 5 6; do
+    FM_SESSION_COST_SECS=0 run_cost "$home" scan >/dev/null 2>&1 &
+  done
+  wait
+  rows=$(grep -c "check: session-cost: w1" "$home/state/.wake-queue")
+  assert_equals 1 "$rows" "concurrent scans must queue one notice for one crossing"
+  pass "concurrent scans queue one notice"
+}
+
+test_show_all_measures_every_local_worker() {
+  local home out
+  home=$(make_home all)
+  write_task "$home" w1 claude ship 1
+  write_task "$home" cx codex scout 1
+  write_task "$home" mate claude secondmate 1
+  write_transcript "$home" a $((NOW - 60)) "$(assistant_line 320000)"
+  out=$(run_cost "$home" show --json --all)
+  assert_equals '["cx","w1"]' "$(printf '%s' "$out" | jq -c 'keys')" "--all should cover local ships and scouts only"
+  assert_equals 321000 "$(printf '%s' "$out" | jq '.w1.context_tokens')" "--all should carry each measurement"
+  assert_equals '"unsupported"' "$(printf '%s' "$out" | jq -c '.cx.status')" "--all should report unsupported workers"
+  rm -f "$home"/state/*.meta
+  assert_equals '{}' "$(run_cost "$home" show --json --all)" "--all with no workers is an empty object"
+  pass "show --json --all measures the fleet in one call"
+}
+
 test_show_measures_newest_main_chain_turn
 test_show_advice_size_and_cold
 test_show_unknown_and_unsupported
@@ -207,3 +272,7 @@ test_scan_is_off_without_config
 test_scan_surfaces_once_per_crossing
 test_scan_waits_for_idle_and_cadence
 test_invalid_config_refuses
+test_ambiguous_transcript_is_unknown
+test_scan_skips_a_busy_worker
+test_concurrent_scans_queue_one_notice
+test_show_all_measures_every_local_worker

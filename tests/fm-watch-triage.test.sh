@@ -6762,6 +6762,8 @@ test_session_cost_notice_is_opt_in() {
     mkdir -p "$dir/config" "$wt"
     [ "$mode" = off ] || : > "$dir/config/session-cache"
     fm_write_meta "$state/big.meta" "window=fm:fm-big" "worktree=$wt" "harness=claude" "kind=ship"
+    "$ROOT/bin/fm-busy-event.sh" arm "$state" big --state idle --source claude-hook --event stop >/dev/null \
+      || fail "could not arm the busy record"
     tdir="$dir/claude/projects/$(printf '%s' "$wt" | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')"
     mkdir -p "$tdir"
     printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":400000}}}' \

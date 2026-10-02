@@ -5,6 +5,7 @@
 #
 # Usage:
 #   fm-session-cost.sh show [--json] <task-id>
+#   fm-session-cost.sh show --json --all
 #   fm-session-cost.sh scan
 #
 # Why: every turn of a session re-reads its whole context, so a worker's cost
@@ -31,11 +32,15 @@
 # makes both subcommands exit 2 with the offending line on stderr.
 #
 # Measurement (Claude workers only; other harnesses report
-# `status=unsupported`): the transcript is the newest
+# `status=unsupported`): the transcript is the one
 # ~/.claude/projects/<dir>/*.jsonl, where <dir> is the worker's recorded
 # worktree path with every character outside [A-Za-z0-9] replaced by `-`,
 # modified no earlier than the task's current spawn_gen incarnation, so a
-# reused local copy or a relaunch never reads a previous session.
+# reused local copy or a relaunch never reads a previous session. The task
+# record names no session, so when more than one transcript there was written
+# since that incarnation began (another Claude session in the same local copy,
+# or a /clear), nothing ties one of them to the worker: that reports
+# `status=unknown detail=ambiguous-transcript` rather than guessing.
 # ~/.claude is the Claude root the worker launched with: the account pin its
 # task record carries (`account=`, see bin/fm-worker-account-lib.sh), where
 # `ordinary` means ~/.claude and any other value is the pinned root, or for an
@@ -45,13 +50,17 @@
 # entry carrying usage. idle_seconds is the age of the transcript's last write.
 # A missing transcript or usage reports `status=unknown` and no advice.
 #
-# show prints one line (or one JSON object with --json):
+# show prints one line (or one JSON object with --json); `show --json --all`
+# prints one object mapping every local ship and scout task id to that same
+# object, so a caller measuring the whole fleet pays one process:
 #   status=ok context_tokens=<n> idle_seconds=<n> cache=<warm|cold> advice=<continue|fresh> reason=<-|size|cold> transcript=<path>
 #   status=<unknown|unsupported> detail=<why>
 #
 # scan visits every local ship and scout record in this home (secondmates and
-# remote records are skipped). For each worker whose advice is `fresh` and
-# that has been idle at least min_idle_minutes, it appends one durable `check`
+# remote records are skipped). For each worker whose advice is `fresh`, that
+# has been idle at least min_idle_minutes, and whose semantic busy record
+# (bin/fm-busy-lib.sh) reads `idle` - its turn ended, so a long tool call that
+# writes nothing is not mistaken for idle time - it appends one durable `check`
 # wake row whose payload is
 #   check: session-cost: <task> context=<n>k idle=<n>m cache=<warm|cold> reason=<size|cold>
 # and prints `actionable: <payload>`. A per-task marker
@@ -62,6 +71,9 @@
 # that session going cold. Markers of tasks with no record are removed.
 # FM_SESSION_COST_SECS (default 300) bounds how often scan does any work, via
 # the state/.session-cost-scan mtime, so the watcher can call it every poll.
+# The whole scan holds state/.session-cost-scan.lock, so two concurrent scans
+# cannot both see a marker absent and queue the same notice twice; a scan that
+# cannot take the lock within 10 seconds exits 1 without queueing anything.
 # FM_SESSION_COST_NOW overrides the clock for tests.
 set -u
 
@@ -142,22 +154,27 @@ claude_dir() {  # <meta>
   esac
 }
 
-# Newest transcript for <worktree> under <claude-dir> modified at or after
-# <since>, or nothing.
+# The one transcript for <worktree> under <claude-dir> modified at or after
+# <since>. Prints it, or nothing and returns 1 when there is none, or prints
+# nothing and returns 2 when more than one qualifies.
 find_transcript() {  # <claude-dir> <worktree> <since>
-  local claude=$1 worktree=$2 since=$3 candidate dir best='' best_m=0 m f
+  local claude=$1 worktree=$2 since=$3 candidate dir found='' m f seen=''
   for candidate in "$worktree" "$(cd "$worktree" 2>/dev/null && pwd -P)"; do
     [ -n "$candidate" ] || continue
     dir="$claude/projects/$(printf '%s' "$candidate" | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')"
     [ -d "$dir" ] || continue
+    case " $seen " in *" $dir "*) continue ;; esac
+    seen="$seen $dir"
     for f in "$dir"/*.jsonl; do
       [ -f "$f" ] || continue
       m=$(file_mtime "$f") || continue
       [ "$m" -ge "$since" ] || continue
-      if [ "$m" -gt "$best_m" ]; then best=$f; best_m=$m; fi
+      [ -z "$found" ] || return 2
+      found=$f
     done
   done
-  [ -n "$best" ] && printf '%s\n' "$best"
+  [ -n "$found" ] || return 1
+  printf '%s\n' "$found"
 }
 
 # Context size of the newest main-chain assistant entry with usage, or nothing.
@@ -177,7 +194,7 @@ context_tokens() {  # <transcript>
 
 # Sets M_STATUS M_DETAIL M_CONTEXT M_IDLE M_CACHE M_ADVICE M_REASON M_TRANSCRIPT.
 measure() {  # <task-id>
-  local id=$1 meta harness worktree since now m
+  local id=$1 meta harness worktree since now m rc
   meta="$STATE/$id.meta"
   M_STATUS=unknown M_DETAIL='' M_CONTEXT='' M_IDLE='' M_CACHE='' M_ADVICE='' M_REASON=- M_TRANSCRIPT=''
   if [ ! -f "$meta" ]; then M_DETAIL=no-task-record; return; fi
@@ -189,7 +206,9 @@ measure() {  # <task-id>
   worktree=$(meta_value "$meta" worktree)
   if [ -z "$worktree" ]; then M_DETAIL=no-worktree; return; fi
   since=$(spawn_epoch "$meta")
-  M_TRANSCRIPT=$(find_transcript "$(claude_dir "$meta")" "$worktree" "$since") || true
+  rc=0
+  M_TRANSCRIPT=$(find_transcript "$(claude_dir "$meta")" "$worktree" "$since") || rc=$?
+  if [ "$rc" -eq 2 ]; then M_DETAIL=ambiguous-transcript; return; fi
   if [ -z "$M_TRANSCRIPT" ]; then M_DETAIL=no-transcript; return; fi
   M_CONTEXT=$(context_tokens "$M_TRANSCRIPT") || true
   if [ -z "$M_CONTEXT" ]; then M_DETAIL=no-usage; return; fi
@@ -212,23 +231,50 @@ valid_task_id() {
   case "$1" in ''|.*|*/*|*[!A-Za-z0-9._-]*) return 1 ;; esac
 }
 
+# One line per measurement: the fields jq turns into the show --json object.
+measure_tsv() {
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$M_STATUS" "$M_DETAIL" "$M_CONTEXT" \
+    "$M_IDLE" "$M_CACHE" "$M_ADVICE" "$M_REASON" "$M_TRANSCRIPT"
+}
+
+# shellcheck disable=SC2016 # jq, not the shell, reads these variables
+MEASURE_JQ='
+  def num: if . == "" then null else tonumber end;
+  def str: if . == "" or . == "-" then null else . end;
+  split("\t") | {key:.[0], value:{status:.[1], detail:(.[2]|str), context_tokens:(.[3]|num),
+    idle_seconds:(.[4]|num), cache:(.[5]|str), advice:(.[6]|str),
+    reason:(.[7]|str), transcript:(.[8]|str)}}'
+
+# True for a local ship or scout record: the tasks scan and --all measure.
+local_worker() {  # <meta>
+  local kind
+  kind=$(meta_value "$1" kind)
+  case "${kind:-ship}" in ship|scout) ;; *) return 1 ;; esac
+  [ -z "$(meta_value "$1" remote_host)" ]
+}
+
 cmd_show() {
-  local json=0 id
+  local json=0 id meta
   if [ "${1:-}" = --json ]; then json=1; shift; fi
-  [ $# -eq 1 ] || die_usage "usage: fm-session-cost.sh show [--json] <task-id>"
+  if [ "$json" -eq 1 ] && [ $# -eq 1 ] && [ "$1" = --all ]; then
+    load_config
+    for meta in "$STATE"/*.meta; do
+      [ -f "$meta" ] || continue
+      id=$(basename "$meta" .meta)
+      valid_task_id "$id" || continue
+      local_worker "$meta" || continue
+      measure "$id"
+      measure_tsv "$id"
+    done | jq -Rc "$MEASURE_JQ" | jq -cs 'from_entries'
+    return
+  fi
+  [ $# -eq 1 ] || die_usage "usage: fm-session-cost.sh show [--json] <task-id> | show --json --all"
   id=$1
   valid_task_id "$id" || die_usage "invalid task id: $id"
   load_config
   measure "$id"
   if [ "$json" -eq 1 ]; then
-    jq -cn --arg status "$M_STATUS" --arg detail "$M_DETAIL" --arg context "$M_CONTEXT" \
-      --arg idle "$M_IDLE" --arg cache "$M_CACHE" --arg advice "$M_ADVICE" \
-      --arg reason "$M_REASON" --arg transcript "$M_TRANSCRIPT" '
-      def num: if . == "" then null else tonumber end;
-      def str: if . == "" or . == "-" then null else . end;
-      {status:$status, detail:($detail|str), context_tokens:($context|num),
-       idle_seconds:($idle|num), cache:($cache|str), advice:($advice|str),
-       reason:($reason|str), transcript:($transcript|str)}'
+    measure_tsv "$id" | jq -Rc "$MEASURE_JQ | .value"
   elif [ "$M_STATUS" = ok ]; then
     printf 'status=ok context_tokens=%s idle_seconds=%s cache=%s advice=%s reason=%s transcript=%s\n' \
       "$M_CONTEXT" "$M_IDLE" "$M_CACHE" "$M_ADVICE" "$M_REASON" "$M_TRANSCRIPT"
@@ -238,22 +284,32 @@ cmd_show() {
 }
 
 cmd_scan() {
-  local marker meta id kind fingerprint payload now last
+  local lock rc=0
   [ $# -eq 0 ] || die_usage "usage: fm-session-cost.sh scan"
   [ -e "$CONFIG_FILE" ] || return 0
   load_config
+  # shellcheck source=bin/fm-wake-lib.sh
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  # shellcheck source=bin/fm-busy-lib.sh
+  . "$SCRIPT_DIR/fm-busy-lib.sh"
+  lock="$STATE/.session-cost-scan.lock"
+  fm_lock_acquire_wait_max "$lock" 10 || return 1
+  scan_locked || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+scan_locked() {
+  local marker meta id fingerprint payload now last busy
   now=$(now_epoch)
   last=$(file_mtime "$STATE/.session-cost-scan" 2>/dev/null || echo 0)
   [ $((now - last)) -ge "${FM_SESSION_COST_SECS:-300}" ] || return 0
   touch "$STATE/.session-cost-scan"
 
-  # shellcheck source=bin/fm-wake-lib.sh
-  . "$SCRIPT_DIR/fm-wake-lib.sh"
-
   for marker in "$STATE"/.session-cost-*; do
     [ -f "$marker" ] || continue
     id=${marker#"$STATE"/.session-cost-}
-    [ "$id" = scan ] && continue
+    case "$id" in scan|scan.*) continue ;; esac
     [ -f "$STATE/$id.meta" ] || rm -f "$marker"
   done
 
@@ -261,12 +317,12 @@ cmd_scan() {
     [ -f "$meta" ] || continue
     id=$(basename "$meta" .meta)
     valid_task_id "$id" || continue
-    kind=$(meta_value "$meta" kind)
-    case "${kind:-ship}" in ship|scout) ;; *) continue ;; esac
-    [ -z "$(meta_value "$meta" remote_host)" ] || continue
+    local_worker "$meta" || continue
     measure "$id"
     [ "$M_STATUS" = ok ] && [ "$M_ADVICE" = fresh ] || continue
     [ "$M_IDLE" -ge $((MIN_IDLE_MINUTES * 60)) ] || continue
+    busy=$(fm_busy_record_read "$STATE" "$id") || continue
+    [ "${busy%% *}" = idle ] || continue
     fingerprint="$M_TRANSCRIPT $M_REASON"
     [ "$(cat "$STATE/.session-cost-$id" 2>/dev/null)" = "$fingerprint" ] && continue
     payload="check: session-cost: $id context=$((M_CONTEXT / 1000))k idle=$((M_IDLE / 60))m cache=$M_CACHE reason=$M_REASON"
