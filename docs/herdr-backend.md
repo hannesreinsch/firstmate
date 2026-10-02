@@ -286,7 +286,7 @@ Projected children are placed in one contiguous block immediately after their ow
 - `python3`.
 - The machine-private per-session lock.
 
-A `└ <task>` label without its token counts as a child only when this home's binding records its exact workspace id, so a human `└ notes` space never joins the block.
+A human workspace whose label starts with `└ ` placed inside a parent child block is treated as a projected child for placement and binding position only, never for mutation.
 Existing legacy child labels may extend an already adjacent block read-only but are never renamed or migrated.
 A foreign, ambiguous, detached, or manually interleaved child makes ordering skip with a warning rather than rewriting the layout.
 
