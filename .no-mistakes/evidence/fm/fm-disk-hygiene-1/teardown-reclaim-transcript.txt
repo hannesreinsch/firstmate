@@ -1,0 +1,55 @@
+$ du -sh of build output in the task work copy before teardown
+ 30M	apps/web/.next
+8.0M	node_modules
+4.0K	packages/x/node_modules
+4.0K	.venv
+$ git status --short --ignored
+!! .claude/
+!! .venv/
+!! apps/
+!! node_modules/
+!! packages/
+
+$ FM_HOME=$LAB bin/fm-teardown.sh disk1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-lab.CDA0Pb
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+teardown: reaping leaked worktree process(es) for disk1: 30924 33959 34379 49295
+teardown: force-killing leaked worktree process(es) for disk1: 30924
+fm-disk: reclaimed 38 MiB of rebuildable build output (3 directories) from /Users/hannesreinsch/.treehouse/demo-24e4e7/1/demo
+A new version of treehouse is available: v3.1.0 → v3.1.1
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown disk1 complete (window primary:fm-disk1, worktree /Users/hannesreinsch/.treehouse/demo-24e4e7/1/demo)
+Backlog: disk1 just finished (this home keeps no markdown backlog at /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.CDA0Pb/data/backlog.md). Update /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.CDA0Pb/data/backlog.md - move disk1 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+exit=0
+
+$ after teardown: pooled copy contents
+.venv
+.git
+.gitignore
+hello.txt
+README.md
+.
+./.gitignore
+./.venv
+./.venv/keep
+./README.md
+./hello.txt
+$ treehouse pool status
+A new version of treehouse is available: v3.1.0 → v3.1.1
+Run "treehouse update" to update
+
+base  main  (repository default)
+1     available    ~/.treehouse/demo-24e4e7/1/demo  (detached)
+$ state/
+operational-inbox
+terminal-outcomes
+.guard-watcher-stale-banner
+home-summary.json

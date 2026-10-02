@@ -1,0 +1,55 @@
+$ tree before
+.
+./.gitignore
+./apps
+./apps/web
+./apps/web/.next
+./apps/web/.next/cache
+./apps/web/.next/cache/blob
+./elsewhere
+./elsewhere/node_modules_target
+./elsewhere/node_modules_target/a
+./packages
+./packages/x
+./packages/x/node_modules
+./packages/x/node_modules/dep
+./packages/x/node_modules/dep/f
+./packages/x/node_modules/dep/node_modules
+./packages/x/node_modules/dep/node_modules/inner
+./real
+./real/node_modules
+./src
+./src/.next
+./src/.next/notignored.txt
+./vendor
+./vendor/node_modules
+./vendor/node_modules/keep.js
+
+$ FM_CONFIG_OVERRIDE=<empty cfg> bin/fm-disk.sh reclaim <repo>
+fm-disk: reclaimed 25 MiB of rebuildable build output (2 directories) from /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmdisk.LDZSH8/repo
+exit=0
+
+$ tree after
+.
+./.gitignore
+./apps
+./apps/web
+./elsewhere
+./elsewhere/node_modules_target
+./elsewhere/node_modules_target/a
+./packages
+./packages/x
+./real
+./real/node_modules
+./src
+./src/.next
+./src/.next/notignored.txt
+./vendor
+./vendor/node_modules
+./vendor/node_modules/keep.js
+
+$ git status --short
+?? elsewhere/
+?? real/
+symlink target intact:
+x

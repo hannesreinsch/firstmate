@@ -1,0 +1,25 @@
+$ (no config/min-free-disk-gib: default 5 GiB floor) fm-spawn.sh disk1 ...
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-lab.CDA0Pb
+fm-disk: only 4.1 GiB free on the disk holding /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.CDA0Pb/projects/demo, under the 5 GiB floor (config/min-free-disk-gib); free space - idle work copies often hold rebuildable build output - or lower the floor, then retry
+error: spawn of disk1 refused by the free-disk check above
+exit=1
+
+$ echo 0 > config/min-free-disk-gib; fm-spawn.sh disk1 ...
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-lab.CDA0Pb
+spawned disk1 harness=claude kind=ship mode=local-only yolo=off window=primary:fm-disk1 worktree=/Users/hannesreinsch/.treehouse/demo-24e4e7/1/demo
+exit=0
+$ state/disk1.meta
+window=primary:fm-disk1
+endpoint_task_id=disk1
+worktree=/Users/hannesreinsch/.treehouse/demo-24e4e7/1/demo
+project=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.CDA0Pb/projects/demo
+harness=claude
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/disk1
+tasktmp=/tmp/fm-disk1
+model=default
+effort=default
+busy_gen=g1790946719.31781.13563
+spawn_gen=s1790946721.29856.25884

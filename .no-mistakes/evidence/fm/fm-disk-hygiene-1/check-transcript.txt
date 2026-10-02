@@ -1,0 +1,36 @@
+$ df -h <repo>
+/dev/disk3s5   460Gi   431Gi   4.5Gi    99%    3.7M   47M    7%   /System/Volumes/Data
+
+$ config/min-free-disk-gib=absent; fm-disk.sh check <repo>
+fm-disk: only 4.5 GiB free on the disk holding /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fmdisk.LDZSH8/repo, under the 5 GiB floor (config/min-free-disk-gib); free space - idle work copies often hold rebuildable build output - or lower the floor, then retry
+exit=1
+
+$ config/min-free-disk-gib=1; fm-disk.sh check <repo>
+exit=0
+
+$ config/min-free-disk-gib=4; fm-disk.sh check <repo>
+exit=0
+
+$ config/min-free-disk-gib=0; fm-disk.sh check <repo>
+exit=0
+
+$ config/min-free-disk-gib=abc; fm-disk.sh check <repo>
+fm-disk: /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fmdisk.LDZSH8/cfg/min-free-disk-gib must hold one non-negative integer (GiB); found 'abc'
+exit=2
+
+$ fm-disk.sh check /no/such
+fm-disk: check: no such path '/no/such'
+exit=2
+
+$ reclaim on a subdir (not toplevel)
+fm-disk: reclaim skipped: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmdisk.LDZSH8/repo/apps is not the top of a git work tree
+exit=0
+/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fmdisk.LDZSH8/repo/apps/web/node_modules
+
+$ reclaim-build-output naming .git -> refused
+fm-disk: /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fmdisk.LDZSH8/cfg/reclaim-build-output names '.git', which is not a plain build-output directory name
+exit=2
+
+$ reclaim-build-output empty (comments only) -> disabled
+exit=0
+/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fmdisk.LDZSH8/repo/apps/web/node_modules

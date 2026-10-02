@@ -1,0 +1,14 @@
+$ df -h (real disk)
+/dev/disk3s5   460Gi   432Gi   4.1Gi   100%    3.7M   43M    8%   /System/Volumes/Data
+$ cat config/min-free-disk-gib
+100000
+$ FM_HOME=$LAB bin/fm-spawn.sh disk1 $LAB/projects/demo --mode local-only --yolo off --harness claude --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-lab.CDA0Pb
+fm-disk: only 4.0 GiB free on the disk holding /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.CDA0Pb/projects/demo, under the 100000 GiB floor (config/min-free-disk-gib); free space - idle work copies often hold rebuildable build output - or lower the floor, then retry
+error: spawn of disk1 refused by the free-disk check above
+exit=1
+$ ls state/ (no task record must exist)
+$ tmux windows in lab
+primary:sleep
+$ treehouse worktrees for demo
+/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.CDA0Pb/projects/demo 4a0d5cd [main]
