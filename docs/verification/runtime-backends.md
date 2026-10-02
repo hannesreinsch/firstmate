@@ -510,10 +510,8 @@ The composer-classification record below observes the same gate from the other s
 
 ## Pi seeded-secondmate project trust
 
-A Firstmate-seeded secondmate home carries tracked `.pi/extensions/` that gate Pi behind `Trust project folder?` on first launch.
-`bin/fm-spawn.sh --secondmate` therefore adds `--approve` for Pi and Pi-signed when that executable's help advertises the flag, using the existing `.fm-secondmate-home` marker as the seeded-home signal.
-`--approve` is session-scoped to the launch cwd and does not rewrite `trust.json`.
-Ordinary Pi worker launches omit the flag, and an absent help advertisement omits it so older Pi remains launchable.
+[`fm-spawn.sh --help`](../../bin/fm-spawn.sh) owns the seeded-secondmate project-trust approval contract and compatibility fallback.
+The live guard below isolates Pi's trust-gate behavior in secondmate-shaped homes; portable launch-command coverage separately verifies that spawn selects the flag for the intended launches.
 
 Verified 2026-10-02 on pi 0.82.0 through the default-on live guard (disposable `PI_CODING_AGENT_DIR` / `HOME` only; never `~/.pi`):
 
