@@ -387,7 +387,7 @@ These cases fall back flat without mutating the old projection when duplicate-ag
 
 - Version 1 journals.
 - Dead or missing panes.
-- Duplicate or absent tokens.
+- Duplicate or absent token or bound-workspace matches.
 - Renamed or detached spaces.
 - Cross-home mismatches.
 - Inconsistent endpoint bindings.
