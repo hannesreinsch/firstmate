@@ -1,0 +1,13 @@
+--- before cleanup
+w1	captain-anchor
+w2	└ hidden-tok
+w3	└ my-notes
+w4	└ other-task
+--- after cleanup
+w1	captain-anchor
+w3	└ my-notes
+w4	└ other-task
+ok - cleanup closes the orphan whose label is only "└ hidden-tok", proven by v2 workspace id binding
+ok - human "└ my-notes" workspace without a journal is untouched
+ok - "└ other-task" whose journal binds a different workspace id is untouched
+exit=0
