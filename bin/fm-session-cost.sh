@@ -47,7 +47,9 @@
 # unpinned worker CLAUDE_CONFIG_DIR, then ~/.claude.
 # context_tokens is input_tokens + cache_creation_input_tokens +
 # cache_read_input_tokens of the newest main-chain (not sidechain) assistant
-# entry carrying usage. idle_seconds is the age of the transcript's last write.
+# entry carrying usage, skipping Claude's `<synthetic>` entries (API error or
+# usage-limit stops), whose zero usage is not the session's real context.
+# idle_seconds is the age of the transcript's last write.
 # A missing transcript or usage reports `status=unknown` and no advice.
 #
 # show prints one line (or one JSON object with --json); `show --json --all`
