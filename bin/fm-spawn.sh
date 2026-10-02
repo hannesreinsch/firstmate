@@ -3442,6 +3442,17 @@ herdr_projection_existing_meta_allows_flat() { # <meta>
   esac
 }
 
+# Free-space floor (bin/fm-disk.sh owns the floor and its config). A new work
+# copy plus its install, build, and tests can fill a nearly full disk and fail
+# every live worker with ENOSPC, so refuse before anything is created. A
+# relaunch reuses its recorded copy and is not refused.
+if [ "$RELAUNCH" -eq 0 ]; then
+  FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-disk.sh" check "$PROJ_ABS" || {
+    echo "error: spawn of $ID refused by the free-disk check above" >&2
+    exit 1
+  }
+fi
+
 # Backlog preflight (bin/fm-backlog-transition-lib.sh). This spawn is about to
 # become the sole owner of the row's In-flight transition, so prove the row is
 # transitionable BEFORE any endpoint, worktree, or record exists: a refusal here
