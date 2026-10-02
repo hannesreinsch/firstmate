@@ -68,6 +68,18 @@ test_show_measures_newest_main_chain_turn() {
   pass "show measures the newest main-chain turn of the current session"
 }
 
+test_show_skips_synthetic_zero_usage_turn() {
+  local home out
+  home=$(make_home synthetic)
+  write_task "$home" w1 claude ship $((NOW - 7200))
+  write_transcript "$home" cur $((NOW - 60)) "$(assistant_line 279000)" \
+    '{"type":"assistant","isSidechain":false,"message":{"model":"<synthetic>","usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}'
+  out=$(run_cost "$home" show w1)
+  assert_contains "$out" "status=ok context_tokens=280000" \
+    "a trailing synthetic zero-usage entry should not hide the newest real usage"
+  pass "show skips synthetic zero-usage turns"
+}
+
 test_show_advice_size_and_cold() {
   local home out
   home=$(make_home advice)
@@ -265,6 +277,7 @@ test_show_all_measures_every_local_worker() {
 }
 
 test_show_measures_newest_main_chain_turn
+test_show_skips_synthetic_zero_usage_turn
 test_show_advice_size_and_cold
 test_show_unknown_and_unsupported
 test_show_reads_the_pinned_account_root

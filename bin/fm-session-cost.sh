@@ -177,13 +177,14 @@ find_transcript() {  # <claude-dir> <worktree> <since>
   printf '%s\n' "$found"
 }
 
-# Context size of the newest main-chain assistant entry with usage, or nothing.
+# Context size of the newest real main-chain assistant entry with usage, or nothing.
 context_tokens() {  # <transcript>
   local lines
   for lines in 400 4000; do
     tail -n "$lines" "$1" 2>/dev/null | jq -Rr '
       fromjson? // empty
       | select(.type == "assistant" and (.isSidechain // false) == false)
+      | select(.message.model != "<synthetic>")
       | .message.usage // empty
       | select((.input_tokens | type) == "number")
       | (.input_tokens + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0))
