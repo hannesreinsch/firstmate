@@ -1,0 +1,29 @@
+### idle 15m, real transcript copied under the pinned root only
+$ FM_HOME=$LAB bin/fm-session-cost.sh show pinned   # account=$LAB/pinned-claude
+status=ok context_tokens=22792 idle_seconds=900 cache=warm advice=fresh reason=size transcript=$LAB/pinned-claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-06Fh8F-wt2/3d06462e-e9c3-4b66-8267-77f16984d3f9.jsonl
+$ FM_HOME=$LAB bin/fm-session-cost.sh show real
+status=ok context_tokens=22792 idle_seconds=900 cache=warm advice=fresh reason=size transcript=~/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-06Fh8F-wt/3d06462e-e9c3-4b66-8267-77f16984d3f9.jsonl
+
+### config/session-cache:
+fresh_tokens=10000
+min_idle_minutes=5
+$ scan (1st)
+actionable: check: session-cost: ordinary context=22k idle=15m cache=warm reason=size
+actionable: check: session-cost: pinned context=22k idle=15m cache=warm reason=size
+actionable: check: session-cost: real context=22k idle=15m cache=warm reason=size
+exit=0
+$ scan (2nd, same sessions)
+exit=0 (no output = no repeat notice)
+$ scan (default cadence 300s, right after)
+exit=0
+$ cat state/.wake-queue
+1790960002	1	check	session-cost:ordinary	check: session-cost: ordinary context=22k idle=15m cache=warm reason=size
+1790960002	2	check	session-cost:pinned	check: session-cost: pinned context=22k idle=15m cache=warm reason=size
+1790960002	3	check	session-cost:real	check: session-cost: real context=22k idle=15m cache=warm reason=size
+
+### cache goes cold: cold_fresh_tokens=20000, fresh_tokens=500000, cache_ttl_minutes=10
+status=ok context_tokens=22792 idle_seconds=901 cache=cold advice=fresh reason=cold transcript=~/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-06Fh8F-wt/3d06462e-e9c3-4b66-8267-77f16984d3f9.jsonl
+$ scan (new reason=cold surfaces once more)
+actionable: check: session-cost: ordinary context=22k idle=15m cache=cold reason=cold
+actionable: check: session-cost: pinned context=22k idle=15m cache=cold reason=cold
+actionable: check: session-cost: real context=22k idle=15m cache=cold reason=cold

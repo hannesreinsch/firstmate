@@ -1,0 +1,55 @@
+## lab=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-lab.2zSIza worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.2zSIza/projects/w1
+claude exit=0
+
+$ show w1 (no config, defaults)
+status=ok context_tokens=22785 idle_seconds=1 cache=warm advice=continue reason=- transcript=/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-2zSIza-projects-w1/2450f8bf-2df7-4524-99b0-542b03ac8c96.jsonl
+$ show w2 (codex worker)
+status=unsupported detail=harness-codex
+$ show --json w1
+{"status":"ok","detail":null,"context_tokens":22785,"idle_seconds":1,"cache":"warm","advice":"continue","reason":null,"transcript":"/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-2zSIza-projects-w1/2450f8bf-2df7-4524-99b0-542b03ac8c96.jsonl"}
+
+$ scan with no config/session-cache (opt-in off)
+exit=0 wake rows: 0
+w1.meta
+w2.meta
+
+$ config: fresh_tokens=10000 min_idle_minutes=1; scan with clock +2m
+actionable: check: session-cost: w1 context=22k idle=2m cache=warm reason=size
+exit=0
+$ scan again (same session, same reason -> silent)
+exit=0
+$ marker
+/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-2zSIza-projects-w1/2450f8bf-2df7-4524-99b0-542b03ac8c96.jsonl size
+$ durable wake rows
+-- /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-lab.2zSIza/state/.wake-queue
+1790946472	1	check	session-cost:w1	check: session-cost: w1 context=22k idle=2m cache=warm reason=size
+
+$ scan before min_idle (fresh marker removed, clock now) -> silent
+exit=0
+
+$ cold path: fresh_tokens=900000 cold_fresh_tokens=10000 cache_ttl_minutes=1, clock +2m
+actionable: check: session-cost: w1 context=22k idle=2m cache=cold reason=cold
+exit=0
+
+$ bad config -> exit 2
+fm-session-cost: config/session-cache: not a positive whole number: fresh_tokens=abc
+exit=2
+
+$ account pin = absolute root, ambient CLAUDE_CONFIG_DIR bogus -> pin wins
+status=ok context_tokens=22785 idle_seconds=2 cache=warm advice=fresh reason=size transcript=/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-2zSIza-projects-w1/2450f8bf-2df7-4524-99b0-542b03ac8c96.jsonl
+$ account pin = other root (no transcript there) -> unknown
+status=unknown detail=no-transcript
+$ account=ordinary while ambient CLAUDE_CONFIG_DIR bogus -> uses ~/.claude
+status=ok context_tokens=22785 idle_seconds=2 cache=warm advice=fresh reason=size transcript=/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-2zSIza-projects-w1/2450f8bf-2df7-4524-99b0-542b03ac8c96.jsonl
+$ unpinned with ambient CLAUDE_CONFIG_DIR bogus -> unknown
+status=unknown detail=no-transcript
+
+$ fleet view
+## Session Cost
+## Session Cost
+
+| ID | Context | Idle | Cache | Advice |
+| --- | --- | --- | --- | --- |
+| w1 | 22k | 0m | warm | fresh (size) |
+| w2 | - | - | - | unsupported: harness-codex |
+

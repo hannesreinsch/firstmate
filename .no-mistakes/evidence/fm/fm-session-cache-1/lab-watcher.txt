@@ -1,0 +1,41 @@
+$ FM_HOME=$LAB bin/fm-watch.sh   (config/session-cache present, one idle real Claude worker)
+--- stdout
+check: rearm-resurface
+--- state/.wake-queue
+### run 2 (opted in): first watcher pass
+check: session-cost
+state/.wake-queue:
+1790960027	1	check	session-cost:real	check: session-cost: real context=22k idle=15m cache=warm reason=size
+
+### run 3 (same session, still opted in) - expect no repeat session-cost wake
+after 2s stdout=[check: rearm-resurface]
+
+### run 4: opt-out (config/session-cache removed, markers cleared)
+after 2s stdout=[check: rearm-resurface]
+state/.wake-queue rows: 1
+
+### opt-out, repeated until past rearm-resurface (expect no session-cost wake; 40s = quiet poll, killed)
+after 2s stdout=[check: rearm-resurface]
+after 2s stdout=[check: rearm-resurface]
+after 2s stdout=[check: rearm-resurface]
+session-cost rows in wake queue: 1
+
+### opted in again, marker kept from a scan: same session should not wake twice
+after 2s stdout=[check: rearm-resurface]
+after 2s stdout=[check: rearm-resurface]
+after 2s stdout=[check: rearm-resurface]
+session-cost rows in wake queue: 2
+
+### opt-out with an empty wake queue (config/session-cache removed, markers cleared)
+after 40s stdout=[]
+session-cost rows in wake queue: 0
+
+### opt back in, same empty queue
+after 2s stdout=[check: session-cost]
+wake queue:
+1790960110	1	check	session-cost:real	check: session-cost: real context=22k idle=16m cache=warm reason=size
+### same session again - expect no second session-cost wake
+after 2s stdout=[check: rearm-resurface]
+after 2s stdout=[check: rearm-resurface]
+after 2s stdout=[check: rearm-resurface]
+session-cost rows in wake queue: 1

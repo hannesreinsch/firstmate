@@ -1,0 +1,32 @@
+### show (defaults, no config)
+$ FM_HOME=$LAB bin/fm-session-cost.sh show real
+status=ok context_tokens=22792 idle_seconds=1 cache=warm advice=continue reason=- transcript=~/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-06Fh8F-wt/3d06462e-e9c3-4b66-8267-77f16984d3f9.jsonl
+$ FM_HOME=$LAB bin/fm-session-cost.sh show pinned
+status=unknown detail=no-transcript
+$ FM_HOME=$LAB bin/fm-session-cost.sh show ordinary
+status=ok context_tokens=22792 idle_seconds=1 cache=warm advice=continue reason=- transcript=~/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-06Fh8F-wt/3d06462e-e9c3-4b66-8267-77f16984d3f9.jsonl
+$ FM_HOME=$LAB bin/fm-session-cost.sh show cx
+status=unsupported detail=harness-codex
+$ FM_HOME=$LAB bin/fm-session-cost.sh show nope
+status=unknown detail=no-task-record
+$ CLAUDE_CONFIG_DIR=/nonexistent FM_HOME=$LAB bin/fm-session-cost.sh show --json ordinary   # ordinary pin ignores ambient CLAUDE_CONFIG_DIR
+{"status":"ok","detail":null,"context_tokens":22792,"idle_seconds":1,"cache":"warm","advice":"continue","reason":null,"transcript":"~/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-lab-06Fh8F-wt/3d06462e-e9c3-4b66-8267-77f16984d3f9.jsonl"}
+$ CLAUDE_CONFIG_DIR=/nonexistent FM_HOME=$LAB bin/fm-session-cost.sh show real   # unpinned uses ambient
+status=unknown detail=no-transcript
+
+### scan without config/session-cache (opt-in off)
+exit=0 wake-queue: <none>
+
+### opt in with low thresholds
+fresh_tokens=10000
+min_idle_minutes=5
+$ scan (1st)
+exit=0
+$ scan (2nd, same sessions)
+exit=0 (no output = no repeat notice)
+$ cat state/.wake-queue
+cat: $LAB/state/.wake-queue: No such file or directory
+
+### invalid config
+fm-session-cost: config/session-cache: not a positive whole number: fresh_tokens=abc
+exit=2

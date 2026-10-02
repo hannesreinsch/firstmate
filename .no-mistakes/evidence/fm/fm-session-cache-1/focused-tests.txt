@@ -1,0 +1,18 @@
+== fm-session-cost
+ok - show measures the newest main-chain turn of the current session
+ok - show advises fresh for a large or a cold mid-size session
+ok - show reports unknown and unsupported sessions honestly
+ok - show reads the Claude root the worker's account pin launched with
+ok - scan is a no-op unless the home opted in
+ok - scan surfaces each crossing once and only for ships and scouts
+ok - scan waits for a quiet worker and its own cadence
+ok - an invalid config refuses instead of guessing
+== fm-fleet-snapshot-view
+ok - durable fold clears a decision only on a keyed resolution
+ok - a completed scout's stale decision surfaces as a report pointer, not pending
+ok - a scout still parked at a decision stays pending (terminal clear does not over-fire)
+ok - snapshot includes durable scout reports after teardown
+ok - snapshot parses tasks-axi rows and respects operational overrides
+ok - fleet view renders the snapshot without secondmate peek guidance
+ok - fleet view renders session cost only when configured
+ok - fleet view renders secondmate agent liveness
