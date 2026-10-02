@@ -1,0 +1,33 @@
+== wake queue
+1790966270	1	check	session-cost:w1	check: session-cost: w1 context=22k idle=10m cache=warm reason=size
+== S9 show w2 (codex)
+status=unsupported detail=harness-codex
+== show --json --all
+{"w1":{"status":"ok","detail":null,"context_tokens":22563,"idle_seconds":9,"cache":"warm","advice":"continue","reason":null,"transcript":"/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-sc-lab-ujYaRK-work/3883e69b-3480-4ae7-a14e-3362c1e24785.jsonl"},"w2":{"status":"unsupported","detail":"harness-codex","context_tokens":null,"idle_seconds":null,"cache":null,"advice":null,"reason":null,"transcript":null}}
+== fleet view
+# Fleet View
+
+Schema: fm-fleet-snapshot.v1
+Home: /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home
+
+## Under Way
+| ID | Current | Kind | Repo/Project | Backend | Endpoint | Artifact | Path | Watch / return channel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| w1 | unknown / none | ship | - | tmux | absent | - | /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-sc-lab.ujYaRK/work | bin/fm-peek.sh fm-w1 |
+| w2 | unknown / none | ship | - | tmux | absent | - | /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-sc-lab.ujYaRK/work | bin/fm-peek.sh fm-w2 |
+
+## Session Cost
+
+| ID | Context | Idle | Cache | Advice |
+| --- | --- | --- | --- | --- |
+| w1 | 22k | 0m | warm | continue |
+| w2 | - | - | - | unsupported: harness-codex |
+
+## Queued
+No queued backlog records found.
+
+## Done
+No done backlog records found.
+
+## Secondmates
+For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority.

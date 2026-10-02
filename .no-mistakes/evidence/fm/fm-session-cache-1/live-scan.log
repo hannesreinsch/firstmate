@@ -1,0 +1,86 @@
++(eval):5> start=+(eval):5> date +%s
++(eval):5> start=1790966261 
++(eval):6> printf 'window=x:fm-w1\nworktree=%s\nharness=claude\nkind=ship\nspawn_gen=s%s.1.1\naccount=ordinary\n' /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-sc-lab.ujYaRK/work 1790966261
++(eval):7> /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-busy-event.sh arm /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state w1 --state busy --source claude-hook --event submit
+g1790966266.97927.14125
++(eval):8> cd /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-sc-lab.ujYaRK/work
++(eval):8> claude -p --model haiku 'Reply with the single word ok.'
++(eval):8> echo 'claude_exit=0'
+claude_exit=0
++(eval):9> /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-busy-event.sh arm /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state w1 --state idle --source claude-hook --event stop
+g1790966269.241.30141
++(eval):10> : 'S1 show measures real transcript'
++(eval):11> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh show w1
+status=ok context_tokens=22563 idle_seconds=1 cache=warm advice=continue reason=- transcript=/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-sc-lab-ujYaRK-work/3883e69b-3480-4ae7-a14e-3362c1e24785.jsonl
++(eval):12> : 'S2 scan is silent without config/session-cache (opt-in)'
++(eval):13> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_SECS=0 /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh scan
++(eval):13> echo 'exit=0'
+exit=0
++(eval):13> eza --icons --group-directories-first -a /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state
+w1.busy-gen
+w1.busy-state
+w1.meta
++(eval):14> : 'S3 opt in with low size threshold, clock +10min: scan surfaces once'
++(eval):15> printf 'fresh_tokens=10000\ncold_fresh_tokens=5000\n'
++(eval):16> NOW=+(eval):16> date +%s
++(eval):16> NOW=1790966869 
++(eval):17> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_SECS=0 FM_SESSION_COST_NOW=1790966869 /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh scan
+actionable: check: session-cost: w1 context=22k idle=10m cache=warm reason=size
++(eval):17> echo 'exit=0'
+exit=0
++(eval):18> : 'S4 second scan: no duplicate notice'
++(eval):19> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_SECS=0 FM_SESSION_COST_NOW=1790966869 /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh scan
++(eval):19> echo 'exit=0'
+exit=0
++(eval):20> eza --icons --group-directories-first /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state
+w1.busy-gen
+w1.busy-state
+w1.meta
++(eval):20> cat /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state/.session-cost-w1
+/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-sc-lab-ujYaRK-work/3883e69b-3480-4ae7-a14e-3362c1e24785.jsonl size
++(eval):20> find /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state -name '*wake*' -o -name '*.queue'
++find:1> local _cc_bin=/Users/hannesreinsch/.local/share/claude/versions/2.1.287
++find:2> [[ -x /Users/hannesreinsch/.local/share/claude/versions/2.1.287 ]]
++find:3> [[ ! -x /Users/hannesreinsch/.local/share/claude/versions/2.1.287 ]]
++find:4> [[ -n 5.9 ]]
++find:5> ARGV0=bfs bfs -S dfs -regextype findutils-default /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state -name '*wake*' -o -name '*.queue'
++(eval):20> head
+/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state/.wake-queue.seq
+/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state/.wake-queue
++(eval):21> : 'S5 cold: clock +2h shows cache=cold'
++(eval):22> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_NOW=+(eval):22> date +%s
++(eval):22> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_NOW=1790973470 /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh show --json w1
+{"status":"ok","detail":null,"context_tokens":22563,"idle_seconds":7202,"cache":"cold","advice":"fresh","reason":"size","transcript":"/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-sc-lab-ujYaRK-work/3883e69b-3480-4ae7-a14e-3362c1e24785.jsonl"}
++(eval):23> : 'S6 busy worker is not surfaced'
++(eval):24> rm -f /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state/.session-cost-w1
++(eval):24> /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-busy-event.sh arm /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state w1 --state busy --source claude-hook --event submit
+g1790966270.1037.7770
++(eval):25> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_SECS=0 FM_SESSION_COST_NOW=1790966869 /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh scan
++(eval):25> echo 'exit=0'
+exit=0
++(eval):26> /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-busy-event.sh arm /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state w1 --state idle --source claude-hook --event stop
+g1790966270.1162.11186
++(eval):27> : 'S7 account pin wins over ambient CLAUDE_CONFIG_DIR'
++(eval):28> CLAUDE_CONFIG_DIR=/nonexistent FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh show w1
+status=ok context_tokens=22563 idle_seconds=2 cache=warm advice=fresh reason=size transcript=/Users/hannesreinsch/.claude/projects/-private-var-folders-7d-57kv-hqd37q961hg14j0-6gc0000gn-T-fm-sc-lab-ujYaRK-work/3883e69b-3480-4ae7-a14e-3362c1e24785.jsonl
++(eval):29> sed -i '' 's|^account=.*|account=/nonexistent-pin|' /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state/w1.meta
++(eval):29> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh show w1
+status=unknown detail=no-transcript
++(eval):30> sed -i '' 's|^account=.*|account=ordinary|' /var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home/state/w1.meta
++(eval):31> : 'S8 bad config exits 2'
++(eval):32> echo 'bogus=1'
++(eval):32> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home FM_SESSION_COST_SECS=0 /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh scan
+fm-session-cost: config/session-cache: unknown key: bogus=1
++(eval):32> echo 'exit=2'
+exit=2
++(eval):33> : 'S9 non-claude worker unsupported'
++(eval):34> printf 'window=x:fm-w2\nworktree=%s\nharness=codex\nkind=ship\nspawn_gen=s%s.1.1\n' /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-sc-lab.ujYaRK/work 1790966261
++(eval):34> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-session-cost.sh show w2
+fm-session-cost: config/session-cache: unknown key: bogus=1
++(eval):35> : 'S10 fleet view shows Session Cost'
++(eval):36> echo
++(eval):36> FM_HOME=/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T//fm-sc-lab.ujYaRK/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M3YXRX6CADX7NNMZASF3WFNW/bin/fm-fleet-view.sh
++(eval):36> sed -n '/Session Cost/,/^$/p'
+## Session Cost
+
++(eval):37> set +x
