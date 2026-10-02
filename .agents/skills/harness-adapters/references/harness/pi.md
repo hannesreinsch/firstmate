@@ -30,9 +30,12 @@ The router's Detection section owns how launch markers and ancestry select betwe
 Keep the instructions as one positional argument.
 Multiple positional arguments become separate queued messages; the spawn template already preserves the one-argument shape.
 
-A project trust dialog can appear on the first Pi run in any not-yet-trusted directory, including a clean worktree.
+A project trust dialog can appear on the first Pi run in any not-yet-trusted directory that holds a trust-requiring resource such as `.pi/extensions/`, including a clean worktree and a freshly seeded secondmate home.
 Accept it with Enter and verify the instructions begin processing.
 The decision persists per path in `~/.pi/agent/trust.json`, or in the pinned root's `trust.json` under a worker account pin, so later spawns in the same pooled slot under that root skip it.
+When `../../../bin/fm-spawn.sh --secondmate` launches Pi or Pi-signed in a Firstmate-seeded home (the existing `.fm-secondmate-home` marker), it adds `--approve` when that executable's help advertises the flag, so the first unattended launch does not stall on the dialog; `--approve` is session-scoped to the launch cwd and does not rewrite the operator trust store.
+Ordinary Pi worker launches and homes Firstmate did not seed still prompt exactly as before.
+An absent or inconclusive help probe omits the flag so older Pi versions remain launchable.
 
 ## Worker turn-end extension
 

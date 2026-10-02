@@ -508,6 +508,29 @@ The lab home was deleted and the test entry was removed from the store and verif
 That automated spawn case runs against a fake claude, so it asserts the store entry and the launch command and nothing more; the live arms above are what establish that the entry actually suppresses the dialog.
 The composer-classification record below observes the same gate from the other side, where an untrusted worktree left Claude, Grok, and Muse unverified because the guard reads a first-launch trust dialog as an unreadable composer.
 
+## Pi seeded-secondmate project trust
+
+A Firstmate-seeded secondmate home carries tracked `.pi/extensions/` that gate Pi behind `Trust project folder?` on first launch.
+`bin/fm-spawn.sh --secondmate` therefore adds `--approve` for Pi and Pi-signed when that executable's help advertises the flag, using the existing `.fm-secondmate-home` marker as the seeded-home signal.
+`--approve` is session-scoped to the launch cwd and does not rewrite `trust.json`.
+Ordinary Pi worker launches omit the flag, and an absent help advertisement omits it so older Pi remains launchable.
+
+Verified 2026-10-02 on pi 0.82.0 through the default-on live guard (disposable `PI_CODING_AGENT_DIR` / `HOME` only; never `~/.pi`):
+
+```sh
+bash tests/fm-pi-seeded-home-trust-live-e2e.test.sh
+```
+
+```
+# live pi version: 0.82.0
+ok - fresh seeded Pi secondmate-shaped home stalls on Trust project folder? without --approve
+ok - seeded home with --approve starts past the trust dialog without rewriting trust.json
+ok - unseeded path without --approve still prompts on Trust project folder?
+# all fm-pi-seeded-home-trust-live-e2e checks passed (3)
+```
+
+Portable launch-command coverage lives in `tests/fm-spawn-dispatch-profile.test.sh` (`test_pi_seeded_secondmate_preapproves_project_trust`, `test_pi_worker_launch_omits_seeded_home_approve`, `test_pi_approve_probe_omits_unsupported_flag`).
+
 ## Launch-prompt backstop signatures
 
 `bin/fm-busy-lib.sh`'s launch-prompt backstop (`fm_busy_launch_prompt_parked`) reclassifies a launch whose busy record is still pinned at the fm-spawn seed as `unknown launch-prompt`, rather than `busy fm-spawn`, when the captured pane matches that harness's own recognized trust, sign-in, or first-run dialog.
