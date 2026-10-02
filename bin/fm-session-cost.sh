@@ -36,7 +36,10 @@
 # worktree path with every character outside [A-Za-z0-9] replaced by `-`,
 # modified no earlier than the task's current spawn_gen incarnation, so a
 # reused local copy or a relaunch never reads a previous session.
-# CLAUDE_CONFIG_DIR relocates ~/.claude exactly as it does for Claude Code.
+# ~/.claude is the Claude root the worker launched with: the account pin its
+# task record carries (`account=`, see bin/fm-worker-account-lib.sh), where
+# `ordinary` means ~/.claude and any other value is the pinned root, or for an
+# unpinned worker CLAUDE_CONFIG_DIR, then ~/.claude.
 # context_tokens is input_tokens + cache_creation_input_tokens +
 # cache_read_input_tokens of the newest main-chain (not sidechain) assistant
 # entry carrying usage. idle_seconds is the age of the transcript's last write.
@@ -68,7 +71,6 @@ FM_HOME="${FM_HOME:-$FM_ROOT}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 CONFIG_FILE="$CONFIG/session-cache"
-CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 usage() {
   sed -n '2,${/^#/!q;p;}' "$0" | sed 's/^# \{0,1\}//'
@@ -129,12 +131,24 @@ spawn_epoch() {  # <meta>
   case "$gen" in ''|*[!0-9]*) echo 0 ;; *) echo "$gen" ;; esac
 }
 
-# Newest transcript for <worktree> modified at or after <since>, or nothing.
-find_transcript() {  # <worktree> <since>
-  local worktree=$1 since=$2 candidate dir best='' best_m=0 m f
+# The Claude root the task's worker launched with.
+claude_dir() {  # <meta>
+  local account
+  account=$(meta_value "$1" account)
+  case "$account" in
+    '') printf '%s\n' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ;;
+    ordinary) printf '%s\n' "$HOME/.claude" ;;
+    *) printf '%s\n' "$account" ;;
+  esac
+}
+
+# Newest transcript for <worktree> under <claude-dir> modified at or after
+# <since>, or nothing.
+find_transcript() {  # <claude-dir> <worktree> <since>
+  local claude=$1 worktree=$2 since=$3 candidate dir best='' best_m=0 m f
   for candidate in "$worktree" "$(cd "$worktree" 2>/dev/null && pwd -P)"; do
     [ -n "$candidate" ] || continue
-    dir="$CLAUDE_DIR/projects/$(printf '%s' "$candidate" | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')"
+    dir="$claude/projects/$(printf '%s' "$candidate" | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')"
     [ -d "$dir" ] || continue
     for f in "$dir"/*.jsonl; do
       [ -f "$f" ] || continue
@@ -175,7 +189,7 @@ measure() {  # <task-id>
   worktree=$(meta_value "$meta" worktree)
   if [ -z "$worktree" ]; then M_DETAIL=no-worktree; return; fi
   since=$(spawn_epoch "$meta")
-  M_TRANSCRIPT=$(find_transcript "$worktree" "$since") || true
+  M_TRANSCRIPT=$(find_transcript "$(claude_dir "$meta")" "$worktree" "$since") || true
   if [ -z "$M_TRANSCRIPT" ]; then M_DETAIL=no-transcript; return; fi
   M_CONTEXT=$(context_tokens "$M_TRANSCRIPT") || true
   if [ -z "$M_CONTEXT" ]; then M_DETAIL=no-usage; return; fi

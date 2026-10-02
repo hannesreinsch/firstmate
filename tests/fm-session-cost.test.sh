@@ -101,6 +101,30 @@ test_show_unknown_and_unsupported() {
   pass "show reports unknown and unsupported sessions honestly"
 }
 
+test_show_reads_the_pinned_account_root() {
+  local home dir out
+  home=$(make_home pinned)
+  write_task "$home" w1 claude ship 1
+  printf 'account=%s\n' "$home/pinned-root" >> "$home/state/w1.meta"
+  dir="$home/pinned-root/projects/$(printf '%s' "$home/wt-pinned" | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')"
+  mkdir -p "$dir"
+  assistant_line 400000 > "$dir/a.jsonl"
+  fm_touch_epoch $((NOW - 60)) "$dir/a.jsonl"
+  write_transcript "$home" ambient $((NOW - 30)) "$(assistant_line 1000)"
+  out=$(run_cost "$home" show w1)
+  assert_contains "$out" "status=ok context_tokens=401000" "a pinned worker should be measured under its pinned root"
+  assert_contains "$out" "$dir/a.jsonl" "a pinned worker's transcript should come from its pinned root"
+  write_task "$home" w2 claude ship 1
+  printf 'account=ordinary\n' >> "$home/state/w2.meta"
+  dir="$home/user/.claude/projects/$(printf '%s' "$home/wt-pinned" | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')"
+  mkdir -p "$dir"
+  assistant_line 200000 > "$dir/b.jsonl"
+  fm_touch_epoch $((NOW - 60)) "$dir/b.jsonl"
+  out=$(HOME="$home/user" run_cost "$home" show w2)
+  assert_contains "$out" "$dir/b.jsonl" "an ordinary pin should read ~/.claude even when CLAUDE_CONFIG_DIR is set"
+  pass "show reads the Claude root the worker's account pin launched with"
+}
+
 test_scan_is_off_without_config() {
   local home out
   home=$(make_home off)
@@ -178,6 +202,7 @@ test_invalid_config_refuses() {
 test_show_measures_newest_main_chain_turn
 test_show_advice_size_and_cold
 test_show_unknown_and_unsupported
+test_show_reads_the_pinned_account_root
 test_scan_is_off_without_config
 test_scan_surfaces_once_per_crossing
 test_scan_waits_for_idle_and_cadence
