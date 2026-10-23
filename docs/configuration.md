@@ -319,16 +319,17 @@ Grok's arm command is rendered at session start, so a change to its host mode ta
 
 ### Engine selection
 
-`config/supervision-host` may be empty or hold one line `<engine> [<model>]`:
+`config/supervision-host` may be empty or hold one line `<engine> [<model> [<effort>]]`:
 
 - empty or `default` selects the primary harness's own engine at that engine's default model (`sonnet` for the Claude engine);
-- `<engine> [<model>]` names a verified engine, currently only `claude`, and optionally the engine's own model name or alias; `default <model>` selects the primary harness's engine with that model.
+- `<engine> [<model>]` names a verified engine, currently only `claude`, and optionally the engine's own model name or alias; `default <model>` selects the primary harness's engine with that model;
+- a third word sets the engine's reasoning effort for every host turn, for example `claude sonnet low`; the Claude engine takes `low`, `medium`, `high`, `xhigh`, or `max`, and without the word the engine runs at its own default effort.
 
 Only Claude has a verified engine of its own, so a Cursor, OpenCode, omp, Grok, or Codex home names `claude` in the file.
 
 ### Failures, when changes apply, and inheritance
 
-An unverified engine, a primary without a verified engine, or a malformed line leaves the host without an engine.
+An unverified engine, a primary without a verified engine, an effort the engine does not take, or a malformed line leaves the host without an engine.
 It takes no wake, so every wake reaches main as it would without the host.
 Each away-posture wake includes a line naming the problem.
 The running host reads both files at every wake, so an engine change or an opt-out takes effect at the next wake without a restart.
