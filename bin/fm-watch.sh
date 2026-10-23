@@ -358,8 +358,8 @@ TURNEND_CHURN_ABSORB_SECS=${FM_TURNEND_CHURN_ABSORB_SECS:-900}  # longest a task
 # wake) and never double-triages - and never runs the costly provably-working read.
 STALE_ESCALATE_SECS=$(fm_stale_escalate_secs "$CONFIG")  # idle secs before a provably-working stale escalates as a possible wedge (fm-classify-lib.sh owns the env, config and default)
 # Routine-signal batching (fm-classify-lib.sh owns the env, config and 0 default).
-# A surfaced signal batch with no captain-relevant event is queued at once but
-# held for up to SIGNAL_BATCH_SECS before it wakes the host, so several routine
+# A surfaced signal batch with no captain-relevant event is held out of the
+# queue for up to SIGNAL_BATCH_SECS, or until any other wake, so several routine
 # turn-ends cost one host turn; signal_batch_hold below owns the marker.
 SIGNAL_BATCH_SECS=$(fm_signal_batch_secs "$CONFIG")
 SIGNAL_BATCH="$STATE/.signal-batch"
