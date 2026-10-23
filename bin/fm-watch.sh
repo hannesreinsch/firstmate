@@ -3037,17 +3037,28 @@ signal_batch_hold() {  # <space-separated files> <rows>
 }
 
 # Queue every held row and drop the marker. Prints the held wake reason, empty
-# when nothing was held.
+# when nothing was held. A failed append keeps only the rows not yet queued, so
+# a successor watcher never queues a row twice. Every wake() runs it first, so
+# any wake carries the held rows into the same drain.
 signal_batch_flush() {
-  local since held key payload
+  local since held key payload rest='' failed=0
   [ -f "$SIGNAL_BATCH" ] || return 0
   {
     IFS= read -r since; IFS= read -r held
     while IFS=$(printf '\t') read -r key payload; do
       [ -n "$key" ] || continue
-      fm_wake_append signal "$key" "${payload:-$held}" || return 1
+      if [ "$failed" -eq 0 ] && fm_wake_append signal "$key" "${payload:-$held}"; then
+        continue
+      fi
+      failed=1
+      rest="${rest}${key}"$'\t'"${payload}"$'\n'
     done
   } < "$SIGNAL_BATCH" || return 1
+  if [ "$failed" -ne 0 ]; then
+    printf '%s\n%s\n%s' "$since" "$held" "$rest" > "$SIGNAL_BATCH.tmp" \
+      && mv -f "$SIGNAL_BATCH.tmp" "$SIGNAL_BATCH"
+    return 1
+  fi
   rm -f "$SIGNAL_BATCH"
   case "$held" in signal:?*) printf '%s\n' "$held" ;; *) printf 'signal: held routine signals\n' ;; esac
 }
@@ -3061,6 +3072,8 @@ signal_batch_due() {
   case "$since" in ''|*[!0-9]*) return 0 ;; esac
   [ $(( $(date +%s) - since )) -ge "$SIGNAL_BATCH_SECS" ]
 }
+# shellcheck disable=SC2034 # Consumed by wake() in the separately linted transition owner.
+FM_WAKE_PRE_OUTPUT_ACTION=signal_batch_flush
 
 # Surfaced-marker bookkeeping for the heartbeat backstop is owned by
 # fm-push-transition-lib.sh because push and poll paths must write one format.

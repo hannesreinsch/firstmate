@@ -1822,8 +1822,21 @@ test_routine_signal_batched_until_window() {
   grep -F "signal: $first" "$out" >/dev/null || fail "the held batch fired with the wrong reason: $(cat "$out")"
   grep -F "$(printf 'signal\tfirst.status\tsignal:')" "$state/.wake-queue" >/dev/null \
     || fail "the held batch row was not queued"
+
+  # 4. Any other wake, here an away-mode heartbeat, carries a held batch into its drain.
+  dir=$(make_case batch-heartbeat); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; first="$state/first.status"
+  : > "$state/.afk"
+  printf '%s\nsignal: %s\nfirst.status\tsignal: %s\n' "$(date +%s)" "$first" "$first" > "$state/.signal-batch"
+  watch_bg "$state" "$fakebin" "$out" env FM_SIGNAL_BATCH_SECS=300 FM_HEARTBEAT=2
+  pid=$!
+  wait_for_exit "$pid" 100 || { reap "$pid"; fail "the heartbeat did not wake"; }
+  grep -F "heartbeat" "$out" >/dev/null || fail "the wake was not the heartbeat: $(cat "$out")"
+  grep -F "$(printf 'signal\tfirst.status\tsignal:')" "$state/.wake-queue" >/dev/null \
+    || fail "the heartbeat wake left the held batch row out of its drain"
+  [ ! -e "$state/.signal-batch" ] || fail "the heartbeat wake left the held batch marker"
   unset FM_FAKE_CREW_STATE
-  pass "routine signals wait for the batch window, done: wakes at once with them, and a held batch survives turning batching off"
+  pass "routine signals wait for the batch window, done: wakes at once with them, a held batch survives turning batching off, and any wake carries a held batch"
 }
 
 test_secondmate_status_note_surfaced_despite_busy_agent() {

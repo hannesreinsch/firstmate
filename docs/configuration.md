@@ -623,7 +623,7 @@ The receipt prevents accidental publication through supported paths; it proves c
 The optional local, gitignored `config/wait-no-turns` presence flag opts this home into keeping a waiting worker from spending turns until it is answered.
 With it present, ship and scout briefs gain the `# Waiting` section and the foreground no-mistakes drive text, every brief's inbox section keeps the natural-checkpoint check and adds that a waiting worker does not poll or list its inbox because a waiting instruction rings, a pending-reply recovery waits while that mate has its own open decision or blocker, and a fire-and-forget steer whose doorbell did not land gets one later ring.
 With the file absent, generated briefs omit the no-poll inbox line, the drive text backgrounds the call, recovery sends during an open decision, and a fire-and-forget steer is not owed a retry ring.
-Their `# Waiting` section then asks for the background wait instead: one background command per gate, merge-train, qa, or no-mistakes wait, a `paused:` line with an ETA before the turn ends, no polling, one completion wake, and a short resume note after a pushed PR or a finished phase so firstmate can resume the task in a fresh session.
+Their `# Waiting` section then asks for the background wait instead: one background command per gate, merge-train, qa, or no-mistakes wait, a `paused:` line with an ETA before the turn ends, no polling, one completion wake, and a short resume note at `data/<id>/resume.md` after a pushed PR or a finished phase, which firstmate can pass to `bin/fm-control.sh <id> relaunch --note-file data/<id>/resume.md` to continue the task in a fresh session.
 The flag is a home-local preference and is not inherited by secondmate homes.
 
 ## PR health monitor (config/pr-health-monitor)
@@ -756,7 +756,8 @@ A valid `FM_SIGNAL_BATCH_SECS` in the environment still wins, and an absent file
 A routine signal is a status append or turn-end that the watcher would surface but that carries no captain-relevant event: a bare turn-end or a `working:` or `paused:` note whose crew has no proof it is still executing.
 The watcher holds such a signal in `state/.signal-batch` instead of waking, adds later routine signals to the same batch, and wakes the supervision host once when the first held signal is that many seconds old.
 A `done:`, `blocked:`, `failed:`, or `needs-decision:` event, and any other captain-relevant event, still wakes at once and carries the held rows into the same drain.
-Held rows enter the durable wake queue only when their batch fires, and a successor watcher fires a batch its predecessor held.
+Any other watcher wake, such as a stale pane, a check, or a heartbeat, also carries the held rows into its drain.
+Held rows enter the durable wake queue only when a wake fires, and a successor watcher fires a batch its predecessor held.
 Away mode never batches, because the away-mode daemon owns triage there.
 The file reaches every watcher route, is read when a watcher starts, and is not inherited by secondmate homes.
 `fm_signal_batch_secs` in `bin/fm-classify-lib.sh` owns the resolution order and validation, and `bin/fm-watch.sh` owns the batch.

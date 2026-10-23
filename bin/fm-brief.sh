@@ -488,7 +488,7 @@ EOF
 WAIT_SECTION=${WAIT_SECTION%$'\n'}
 # The default wait: one background command, a declared pause with an ETA so the
 # idle pane is not taken for a wedge, no polling, and one completion wake; plus
-# a resume note so firstmate can continue the task in a fresh session.
+# a resume note firstmate can hand to `fm-control.sh relaunch --note-file`.
 IFS= read -r -d '' BACKGROUND_WAIT_SECTION <<EOF || true
 # Waiting
 Every turn you take resends your whole context, so a wait must cost one turn, not one per check.
@@ -498,7 +498,7 @@ Never poll the wait: no Monitor loops, no \`sleep\` followed by a check, and no 
 Then end your turn; the command's completion wakes you once.
 If your harness does not wake you when a background command finishes, wait in one blocking shell command instead.
 After you push a PR or finish a phase, and before a long wait, write a short resume note to \`$DATA/$ID/resume.md\`: what is done, what is next, and the exact commands to continue.
-Firstmate can then resume the task in a fresh session instead of carrying your large context into the wait.
+Firstmate can then pass it to \`fm-control.sh $ID relaunch --note-file\` and continue the task in a fresh session instead of carrying your large context into the wait.
 EOF
 BACKGROUND_WAIT_SECTION=${BACKGROUND_WAIT_SECTION%$'\n'}
 WAIT_BLOCK="$BACKGROUND_WAIT_SECTION"$'\n\n'
