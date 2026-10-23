@@ -2488,6 +2488,65 @@ test_nonterminal_stale_provably_working_absorbed_then_escalated() {
   pass "provably-working non-terminal stale is absorbed on first sight, then wedge-escalated past the threshold"
 }
 
+# --- the wedge threshold from config/stale-escalate-secs ---------------------
+# A home sets the threshold durably without an environment variable; a valid
+# FM_STALE_ESCALATE_SECS still wins, and an unusable file keeps the default.
+test_stale_escalate_secs_from_home_config() {
+  local dir state fakebin cfg capture_file window key pid round expect out envset
+  ( unset FM_STALE_ESCALATE_SECS
+    cfg=$(mktemp -d "$TMP_ROOT/stale-cfg.XXXXXX")
+    [ "$(fm_stale_escalate_secs "$cfg")" = 240 ] || fail "absent config did not keep the 240s default"
+    printf '900\n' > "$cfg/stale-escalate-secs"
+    [ "$(fm_stale_escalate_secs "$cfg")" = 900 ] || fail "config/stale-escalate-secs was not read"
+    printf ' 600 \n' > "$cfg/stale-escalate-secs"
+    [ "$(fm_stale_escalate_secs "$cfg")" = 600 ] || fail "surrounding whitespace was not tolerated"
+    printf '15m\n' > "$cfg/stale-escalate-secs"
+    [ "$(fm_stale_escalate_secs "$cfg")" = 240 ] || fail "a non-numeric config value did not fall back"
+    printf '900' > "$cfg/stale-escalate-secs"
+    [ "$(fm_stale_escalate_secs "$cfg")" = 900 ] || fail "a value without a trailing newline was not read"
+    [ "$(FM_STALE_ESCALATE_SECS=30 fm_stale_escalate_secs "$cfg")" = 30 ] || fail "the environment did not win"
+    [ "$(FM_STALE_ESCALATE_SECS=soon fm_stale_escalate_secs "$cfg")" = 900 ] || fail "an invalid env value was not ignored"
+  ) || return 1
+
+  # Behavior: the same provably-working pane idle 500s escalates or absorbs
+  # according to the home file, and the environment overrides the file.
+  for round in 'file-999:absorb' 'file-240:escalate' 'env-999-over-file-240:absorb'; do
+    expect=${round#*:}; round=${round%%:*}
+    dir=$(make_case "stale-cfg-$round"); state="$dir/state"; fakebin="$dir/fakebin"
+    cfg="$dir/config"; mkdir -p "$cfg"; out="$dir/watch.out"; capture_file="$dir/pane.txt"
+    window="test:fm-cfgquiet"; key=$(printf '%s' "$window" | tr ':/.' '___')
+    printf 'idle building output' > "$capture_file"
+    printf 'window=%s\nkind=ship\n' "$window" > "$state/cfgquiet.meta"
+    printf 'working: still compiling\n' > "$state/cfgquiet.status"
+    printf '%s' "$(seen_sig "$state/cfgquiet.status")" > "$state/.seen-cfgquiet_status"
+    printf '%s' "$(hash_text "idle building output")" > "$state/.hash-$key"
+    printf '%s' "$(hash_text "idle building output")" > "$state/.stale-$key"
+    printf '1\n' > "$state/.count-$key"
+    echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+    case "$round" in
+      file-999) printf '999\n' > "$cfg/stale-escalate-secs" ;;
+      *) printf '240\n' > "$cfg/stale-escalate-secs" ;;
+    esac
+    envset='-u FM_STALE_ESCALATE_SECS'
+    [ "$round" != env-999-over-file-240 ] || envset='FM_STALE_ESCALATE_SECS=999'
+    # shellcheck disable=SC2086 # envset is one deliberate env(1) argument list.
+    FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" FM_CONFIG_OVERRIDE="$cfg" \
+      FM_FAKE_CREW_STATE='state: working · source: run-step · ci running' \
+      watch_bg "$state" "$fakebin" "$out" env $envset
+    pid=$!
+    if [ "$expect" = absorb ]; then
+      wait_poll_cycle "$state" "$pid" || { reap "$pid"; fail "[$round] escalated below the configured threshold: $(cat "$out")"; }
+      [ ! -s "$state/.wake-queue" ] || { reap "$pid"; fail "[$round] queued a wake below the configured threshold"; }
+      reap "$pid"
+      ack_stopped_cycle "$state" || fail "[$round] could not acknowledge the intentional stop"
+    else
+      wait_for_exit "$pid" 100 || { reap "$pid"; fail "[$round] did not escalate past the configured threshold"; }
+      grep -F "possible wedge" "$out" >/dev/null || fail "[$round] escalation did not flag a possible wedge: $(cat "$out")"
+    fi
+  done
+  pass "config/stale-escalate-secs sets the wedge threshold, the environment wins, and bad values keep the default"
+}
+
 # --- non-terminal stale, crew NOT provably working: surfaced immediately ------
 # The key requirement: a crew with no running pipeline that has gone quiet (and is
 # not busy) has stopped - it may be done via interactive menus, waiting, or wedged.
@@ -7407,6 +7466,7 @@ test_busy_pane_default_turn_age_bound_is_3600s
 test_busy_declared_pause_is_rechecked_not_wedge_escalated
 test_afk_busy_declared_pause_hands_off_plain_stale
 test_afk_busy_declared_pause_ticking_pane_hands_off_once
+test_stale_escalate_secs_from_home_config
 test_nonterminal_stale_not_working_surfaced
 test_nonterminal_stale_paused_absorbed_then_resurfaced
 test_exited_declared_pause_is_bounded_but_live_gate_surfaces

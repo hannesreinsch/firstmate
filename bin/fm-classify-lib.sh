@@ -123,6 +123,25 @@ FM_CLASSIFY_PAUSED_VERB_DEFAULT='paused'
 # shellcheck disable=SC2034 # Read by the watcher and daemon (fm-watch.sh, fm-supervise-daemon.sh), not this lib.
 FM_PAUSE_RESURFACE_SECS_DEFAULT=14400
 
+# The wedge threshold: idle seconds before a provably-working stale pane
+# escalates as a possible wedge. Both consumers resolve it here so it has one
+# owner: a non-negative integer FM_STALE_ESCALATE_SECS wins, then the first line
+# of the home's config/stale-escalate-secs, then this shared default. Unlike
+# config/watch.env, the config file also reaches the watchers the Codex
+# checkpoint route and the away-mode daemon start directly, and the daemon
+# itself. Any other value is ignored rather than reaching the arithmetic.
+FM_STALE_ESCALATE_SECS_DEFAULT=240
+fm_stale_escalate_secs() {  # <config-dir> -> seconds on stdout
+  local v=${FM_STALE_ESCALATE_SECS-} f="$1/stale-escalate-secs"
+  case "$v" in ''|*[!0-9]*) v='' ;; esac
+  if [ -z "$v" ] && [ -f "$f" ]; then
+    IFS= read -r v < "$f" 2>/dev/null || true
+    v=${v//[[:space:]]/}
+    case "$v" in ''|*[!0-9]*) v='' ;; esac
+  fi
+  printf '%s\n' "${v:-$FM_STALE_ESCALATE_SECS_DEFAULT}"
+}
+
 # fm_utc_iso_to_epoch <YYYY-MM-DDTHH:MM[:SS]Z>: the one portable UTC ISO 8601
 # reader shared by the declared-wait vocabulary and the away-posture record
 # (bin/fm-afk-contract.sh). Prints epoch seconds; returns 1 on any other shape
