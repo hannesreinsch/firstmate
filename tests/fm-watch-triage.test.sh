@@ -1752,6 +1752,80 @@ test_working_note_not_working_surfaced() {
   pass "a no-verb working: note whose crew is idle with no running pipeline is surfaced"
 }
 
+wait_file() {  # <file> [limit-ticks]: 0 once <file> exists
+  local f=$1 limit=${2:-100} i=0
+  while [ "$i" -lt "$limit" ]; do
+    [ -e "$f" ] && return 0
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
+# Routine-signal batching (FM_SIGNAL_BATCH_SECS / config/signal-batch-secs): a
+# surfaced signal with no captain-relevant event is queued at once but its host
+# wake waits for the batch window, while done, blocked, failed and needs-decision
+# still wake at once and carry the held rows with them.
+test_routine_signal_batched_until_window() {
+  local dir state fakebin cfg out first other pid
+  ( unset FM_SIGNAL_BATCH_SECS
+    cfg=$(mktemp -d "$TMP_ROOT/batch-cfg.XXXXXX")
+    [ "$(fm_signal_batch_secs "$cfg")" = 0 ] || fail "absent config did not keep batching off"
+    printf '180\n' > "$cfg/signal-batch-secs"
+    [ "$(fm_signal_batch_secs "$cfg")" = 180 ] || fail "config/signal-batch-secs was not read"
+    [ "$(FM_SIGNAL_BATCH_SECS=0 fm_signal_batch_secs "$cfg")" = 0 ] || fail "the environment did not win"
+  ) || return 1
+  export FM_FAKE_CREW_STATE='state: working · source: status-log · working: compiling'
+
+  # 1. A routine note is queued but held; the host wakes once the window passes.
+  dir=$(make_case batch-window); state="$dir/state"; fakebin="$dir/fakebin"
+  cfg="$dir/config"; mkdir -p "$cfg"; printf '300\n' > "$cfg/signal-batch-secs"
+  out="$dir/watch.out"; first="$state/first.status"
+  printf 'working: compiling step 2\n' > "$first"
+  FM_CONFIG_OVERRIDE="$cfg" watch_bg "$state" "$fakebin" "$out" env -u FM_SIGNAL_BATCH_SECS
+  pid=$!
+  wait_file "$state/.signal-batch" || { reap "$pid"; fail "a routine signal was not held for the batch window: $(cat "$out")"; }
+  wait_poll_cycle "$state" "$pid" || fail "a held routine signal woke the host before its window: $(cat "$out")"
+  wait_poll_cycle "$state" "$pid" || fail "a held routine signal woke the host before its window: $(cat "$out")"
+  [ ! -s "$out" ] || { reap "$pid"; fail "a held routine signal printed a wake: $(cat "$out")"; }
+  grep -F "$(printf 'first.status\tsignal: %s' "$first")" "$state/.signal-batch" >/dev/null \
+    || { reap "$pid"; fail "the held batch did not keep its row: $(cat "$state/.signal-batch")"; }
+  sed "1s/.*/$(( $(date +%s) - 301 ))/" "$state/.signal-batch" > "$state/.signal-batch.new"
+  mv -f "$state/.signal-batch.new" "$state/.signal-batch"
+  wait_for_exit "$pid" 100 || { reap "$pid"; fail "a held routine signal did not wake after its window"; }
+  grep -F "signal: $first" "$out" >/dev/null || fail "the batch wake lost its reason: $(cat "$out")"
+  grep -F "$(printf 'signal\tfirst.status\tsignal:')" "$state/.wake-queue" >/dev/null \
+    || fail "the fired batch did not queue its row"
+  [ ! -e "$state/.signal-batch" ] || fail "a fired batch left its marker"
+
+  # 2. A done: event wakes at once and clears the held batch with it.
+  dir=$(make_case batch-urgent); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; first="$state/first.status"; other="$state/other.status"
+  printf 'working: compiling step 2\n' > "$first"
+  watch_bg "$state" "$fakebin" "$out" env FM_SIGNAL_BATCH_SECS=300
+  pid=$!
+  wait_file "$state/.signal-batch" || { reap "$pid"; fail "the routine signal was not held"; }
+  printf 'done: shipped\n' > "$other"
+  wait_for_exit "$pid" 100 || { reap "$pid"; fail "a done: event waited for the batch window"; }
+  grep -F "signal: $other" "$out" >/dev/null || fail "the done: wake lost its reason: $(cat "$out")"
+  grep -F "$(printf 'signal\tfirst.status\t')" "$state/.wake-queue" >/dev/null \
+    || fail "the held routine row was not left for the same drain"
+  [ ! -e "$state/.signal-batch" ] || fail "an urgent wake left the held batch marker"
+
+  # 3. A batch still held when batching is turned off fires at once.
+  dir=$(make_case batch-off); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; first="$state/first.status"
+  printf '%s\nsignal: %s\nfirst.status\tsignal: %s\n' "$(date +%s)" "$first" "$first" > "$state/.signal-batch"
+  watch_bg "$state" "$fakebin" "$out" env FM_SIGNAL_BATCH_SECS=0
+  pid=$!
+  wait_for_exit "$pid" 100 || { reap "$pid"; fail "a held batch did not fire with batching off"; }
+  grep -F "signal: $first" "$out" >/dev/null || fail "the held batch fired with the wrong reason: $(cat "$out")"
+  grep -F "$(printf 'signal\tfirst.status\tsignal:')" "$state/.wake-queue" >/dev/null \
+    || fail "the held batch row was not queued"
+  unset FM_FAKE_CREW_STATE
+  pass "routine signals wait for the batch window, done: wakes at once with them, and a held batch survives turning batching off"
+}
+
 test_secondmate_status_note_surfaced_despite_busy_agent() {
   local dir state fakebin out drain_out pid
   dir=$(make_case secondmate-note-surfaced); state="$dir/state"; fakebin="$dir/fakebin"
@@ -7417,6 +7491,7 @@ test_turn_ended_oversized_churn_bound_surfaced
 test_turn_ended_invalid_churn_deadline_surfaced
 test_turn_ended_surfaced_batch_opens_no_partial_deadline
 test_working_note_not_working_surfaced
+test_routine_signal_batched_until_window
 test_secondmate_status_note_surfaced_despite_busy_agent
 test_secondmate_routine_progress_absorbed_then_note_surfaced
 test_secondmate_buried_block_wakes_despite_busy_agent

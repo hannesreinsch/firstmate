@@ -745,6 +745,20 @@ A watcher reads it when it starts and the daemon reads it on every housekeeping 
 The file is home-local and not inherited by secondmate homes.
 `fm_stale_escalate_secs` in `bin/fm-classify-lib.sh` owns the resolution order and validation.
 
+## Routine-signal batching (config/signal-batch-secs)
+
+The optional local, gitignored `config/signal-batch-secs` file lets this home batch routine worker signals into fewer supervision wakes.
+Its first line is a non-negative whole number of seconds; 120 to 300 suits a busy fleet.
+A valid `FM_SIGNAL_BATCH_SECS` in the environment still wins, and an absent file, an empty line, or any other value keeps the shared default of 0, which wakes at once as before.
+
+A routine signal is a status append or turn-end that the watcher would surface but that carries no captain-relevant event: a bare turn-end or a `working:` or `paused:` note whose crew has no proof it is still executing.
+The watcher holds such a signal in `state/.signal-batch` instead of waking, adds later routine signals to the same batch, and wakes the supervision host once when the first held signal is that many seconds old.
+A `done:`, `blocked:`, `failed:`, or `needs-decision:` event, and any other captain-relevant event, still wakes at once and carries the held rows into the same drain.
+Held rows enter the durable wake queue only when their batch fires, and a successor watcher fires a batch its predecessor held.
+Away mode never batches, because the away-mode daemon owns triage there.
+The file reaches every watcher route, is read when a watcher starts, and is not inherited by secondmate homes.
+`fm_signal_batch_secs` in `bin/fm-classify-lib.sh` owns the resolution order and validation, and `bin/fm-watch.sh` owns the batch.
+
 ## Parked-gate wait deferral (config/wedge-defer-parked-gate)
 
 The optional local, gitignored `config/wedge-defer-parked-gate` presence flag opts this home into a default-off further form of wait evidence in the watcher's wedge timer.
@@ -2817,6 +2831,7 @@ FM_WATCH_EXTENSION_LOG_KEEP_LINES=0   # opt-in Pi extension diagnostic log (stat
 FM_WATCHER_STALE_GRACE=300   # defaults to FM_GUARD_GRACE if set, else the poll-derived grace (docs/turnend-guard.md "Guard grace and the poll cadence"); seconds before a fresh arm refuses a live holder's stale beacon (attached arms: FM_WATCHER_STALL_BOUND)
 FM_WATCHER_STALL_BOUND=       # live-holder stall bound; default and arm/re-arm behavior: docs/turnend-guard.md "Guard grace and the poll cadence"
 FM_SIGNAL_GRACE=30      # seconds to coalesce nearby status and turn-end signals into one wake
+FM_SIGNAL_BATCH_SECS=0  # seconds to hold routine signals before one batched wake (overrides config/signal-batch-secs); 0 wakes at once
 FM_WATCHER_CLEANUP_LOCK_BOUND=   # optional watcher EXIT marker-lock wait; default and validation: docs/watcher-continuity.md
 FM_TURNEND_CHURN_ABSORB_SECS=900   # longest one endpoint's bare turn-ends may be deferred on pane-churn evidence alone; only consulted when config/turnend-churn-absorb is present
 FM_CAPTAIN_RE='done:|needs-decision:|blocked:|failed:|PR ready|checks green|ready in branch|merged'   # captain-relevant status regex; nonterminal progress verbs remain excluded even when their prose matches
