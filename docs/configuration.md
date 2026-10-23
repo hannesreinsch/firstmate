@@ -622,7 +622,8 @@ The receipt prevents accidental publication through supported paths; it proves c
 
 The optional local, gitignored `config/wait-no-turns` presence flag opts this home into keeping a waiting worker from spending turns until it is answered.
 With it present, ship and scout briefs gain the `# Waiting` section and the foreground no-mistakes drive text, every brief's inbox section keeps the natural-checkpoint check and adds that a waiting worker does not poll or list its inbox because a waiting instruction rings, a pending-reply recovery waits while that mate has its own open decision or blocker, and a fire-and-forget steer whose doorbell did not land gets one later ring.
-With the file absent, generated briefs omit the waiting section and the no-poll inbox line, the drive text backgrounds the call, recovery sends during an open decision, and a fire-and-forget steer is not owed a retry ring.
+With the file absent, generated briefs omit the no-poll inbox line, the drive text backgrounds the call, recovery sends during an open decision, and a fire-and-forget steer is not owed a retry ring.
+Their `# Waiting` section then asks for the background wait instead: one background command per gate, merge-train, qa, or no-mistakes wait, a `paused:` line with an ETA before the turn ends, no polling, one completion wake, and a short resume note after a pushed PR or a finished phase so firstmate can resume the task in a fresh session.
 The flag is a home-local preference and is not inherited by secondmate homes.
 
 ## PR health monitor (config/pr-health-monitor)
