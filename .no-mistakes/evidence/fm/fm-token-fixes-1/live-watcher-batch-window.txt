@@ -1,0 +1,19 @@
+--- held marker at 5s:
+1792760869
+signal: $LAB/state/w1.status
+w1.status	signal: $LAB/state/w1.status
+w1.status	signal: $LAB/state/w1.status
+--- wake queue while held:
+(none)
+--- watcher output while held:
+--- watcher output after window:
+signal: $LAB/state/w1.status
+exit=0 after 12s
+--- queue after:
+1792760876	1	signal	w1.status	signal: $LAB/state/w1.status
+1792760876	2	signal	w1.status	signal: $LAB/state/w1.status
+--- marker after:
+ls: $LAB/state/.signal-batch: No such file or directory
+--- triage log:
+[2026-10-23T15:07:49+0200] held routine signal: $LAB/state/w1.status for the 6s signal batch window
+--- stderr:

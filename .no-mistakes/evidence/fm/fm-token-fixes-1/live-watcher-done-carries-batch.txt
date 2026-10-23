@@ -1,0 +1,16 @@
+--- held marker (window 300s):
+1792760908
+signal: $LAB/state/w1.status
+w1.status	signal: $LAB/state/w1.status
+w1.status	signal: $LAB/state/w1.status
+--- output 3s later (expect empty):
+--- output after done:
+signal: $LAB/state/w2.status
+exit=0 after 11s
+--- queue (one drain):
+1792760914	1	signal	w1.status	signal: $LAB/state/w1.status
+1792760914	2	signal	w1.status	signal: $LAB/state/w1.status
+1792760914	3	signal	w2.status	signal: $LAB/state/w2.status
+1792760914	4	signal	w2.status	signal: $LAB/state/w2.status
+--- marker:
+ls: $LAB/state/.signal-batch: No such file or directory

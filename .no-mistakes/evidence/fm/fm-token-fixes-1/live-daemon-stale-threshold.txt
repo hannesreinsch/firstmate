@@ -1,0 +1,5 @@
+=== none: config=absent env=unset -> stale_escalate=240s
+=== file900: config=900 env=unset -> stale_escalate=900s
+=== env45-over-file: config=900 env=FM_STALE_ESCALATE_SECS=45 -> stale_escalate=45s
+=== bad-file: config=15m env=unset -> stale_escalate=240s
+0

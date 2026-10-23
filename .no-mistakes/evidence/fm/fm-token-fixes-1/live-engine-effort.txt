@@ -1,0 +1,9 @@
+line='claude sonnet low' -> engine=claude model=sonnet effort=low problem=<none>
+line='claude sonnet turbo' -> engine= model= effort=<default> problem=config/supervision-host names an effort 'turbo' that the claude engine does not take
+line='claude sonnet' -> engine=claude model=sonnet effort=<default> problem=<none>
+turn rc=0
+--- engine argv seen in ps (effort part):
+--model sonnet --output-format json --effort low
+--- result:
+{"is_error":false,"result":"PONG","subtype":"success"}
+--- stderr:

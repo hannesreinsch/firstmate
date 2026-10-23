@@ -1,0 +1,2 @@
+ok - routine signals wait for the batch window, done: wakes at once with them, a held batch survives turning batching off, and any wake carries a held batch
+ok - config/stale-escalate-secs sets the wedge threshold, the environment wins, and bad values keep the default

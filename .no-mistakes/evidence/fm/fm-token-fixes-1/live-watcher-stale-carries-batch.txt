@@ -1,0 +1,17 @@
+lab:1: fm-w1* (1 panes) [80x24] 
+--- held marker:
+1792761041
+signal: $LAB/state/w1.status
+w1.status	signal: $LAB/state/w1.status
+w1.status	signal: $LAB/state/w1.status
+--- output:
+stale: lab:fm-w1
+exit=0 after 8s
+--- queue:
+1792761044	1	stale	lab:fm-w1	stale: lab:fm-w1
+1792761044	2	signal	w1.status	signal: $LAB/state/w1.status
+1792761044	3	signal	w1.status	signal: $LAB/state/w1.status
+--- marker:
+ls: $LAB/state/.signal-batch: No such file or directory
+--- triage:
+[2026-10-23T15:10:41+0200] held routine signal: $LAB/state/w1.status for the 300s signal batch window

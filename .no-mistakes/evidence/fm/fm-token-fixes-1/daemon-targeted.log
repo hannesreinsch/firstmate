@@ -1,0 +1,2 @@
+ok - housekeeping reads the wedge threshold from config/stale-escalate-secs
+(from: bash tests/fm-daemon.test.sh | grep "wedge threshold"; no "not ok" lines)
