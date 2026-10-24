@@ -134,10 +134,12 @@ fm_cold_cache_is_parked() {  # <state-dir> <id>
 }
 
 fm_cold_cache_parked_field() {  # <state-dir> <id> <key>
-  local line
+  local line path
+  path=$(fm_cold_cache_parked_path "$1" "$2")
+  [ -f "$path" ] || return 1
   while IFS= read -r line; do
     case "$line" in "$3="*) printf '%s' "${line#"$3="}"; return 0 ;; esac
-  done < "$(fm_cold_cache_parked_path "$1" "$2")" 2>/dev/null
+  done < "$path"
   return 1
 }
 

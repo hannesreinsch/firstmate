@@ -156,6 +156,7 @@ test_send_refuses_a_cold_or_parked_ship() {
   expect_code 4 "$rc" "a cold ship steer should be refused with exit 4"
   assert_contains "$out" "fm-control.sh t1 relaunch --note-file" "the refusal should print the relaunch command"
   assert_contains "$out" "--cold-ok" "the refusal should name the override"
+  case "$out" in *"No such file"*) fail "the refusal should print no stray error: $out" ;; esac
   [ -s "$s/t1.cold-relaunch-note" ] || fail "the refusal should write the default note"
   [ -s "$log" ] && fail "a refused steer must type nothing"
   [ -e "$s/t1.inbox/001.msg" ] && fail "a refused steer must record nothing"
