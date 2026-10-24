@@ -195,7 +195,15 @@ case "${1:-}" in
             printf '1\n'
           fi
           exit 0 ;;
-        *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
+        *pane_current_command*)
+          # on-second-state-read runs once, at the second agent-state read,
+          # to model a change between a caller's check and its action.
+          if [ -f "$D/on-second-state-read" ]; then
+            n=$(( $(cat "$D/state-reads" 2>/dev/null || echo 0) + 1 ))
+            printf '%s' "$n" > "$D/state-reads"
+            [ "$n" != 2 ] || bash "$D/on-second-state-read"
+          fi
+          cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*) cat "$D/cwd"; printf '\n'; exit 0 ;;
       esac
     done
@@ -1083,6 +1091,24 @@ test_park_keeps_a_worker_with_background_work_running() {
   pass "fm-control park: background work keeps the worker running, closed with Escape, unmarked, exit 3"
 }
 
+test_park_never_interrupts_a_turn_started_after_its_check() {
+  local dir out rc
+  dir=$(new_case park-race)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  make_cold_wait "$dir" t1
+  printf '%q apply %q t1 busy --current-gen --source claude-hook --event UserPromptSubmit\n' \
+    "$ROOT/bin/fm-busy-event.sh" "$dir/home/state" > "$dir/fake/on-second-state-read"
+  out=$(run_control "$dir" t1 park); rc=$?
+  expect_code 1 "$rc" "park must refuse a worker that started a turn after its check"$'\n'"$out"
+  assert_contains "$out" "started a turn" "the refusal should say why"
+  [ -z "$(keys_sent "$dir")" ] || fail "park must send no interrupt key, got: $(keys_sent "$dir")"
+  [ -z "$(literals "$dir")" ] || fail "park must type nothing, got: $(literals "$dir")"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "the agent should still run"
+  [ ! -e "$dir/home/state/t1.cold-parked" ] || fail "a worker left running must not be marked parked"
+  pass "fm-control park: a turn started after the park check is refused with nothing sent"
+}
+
 test_park_stops_an_eligible_worker_and_marks_it() {
   local dir out rc
   dir=$(new_case park-ok)
@@ -1472,6 +1498,7 @@ test_exit_confirms_the_picker_its_submit_opened
 test_exit_answers_a_picker_that_renders_after_the_submit
 test_exit_fails_when_the_confirmed_picker_leaves_the_agent_running
 test_park_keeps_a_worker_with_background_work_running
+test_park_never_interrupts_a_turn_started_after_its_check
 test_park_stops_an_eligible_worker_and_marks_it
 test_park_refuses_an_ineligible_live_worker
 test_park_of_an_already_stopped_worker_needs_no_cold_proof

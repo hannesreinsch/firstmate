@@ -812,8 +812,11 @@ do_exit() {
       ;;
   esac
   # A busy agent is interrupted first before the exit command is submitted.
+  # Park never interrupts: a worker that started a turn is not cold.
   case "$(busy_verdict)" in
     busy*)
+      [ "$EXIT_PICKER_POLICY" != stay ] \
+        || die "task $ID started a turn before park could stop it; nothing was typed and it was left running"
       cancel=$(deliver_interrupt) || return $?
       state=$(agent_state)
       case "$state" in
