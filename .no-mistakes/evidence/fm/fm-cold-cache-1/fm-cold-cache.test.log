@@ -1,0 +1,6 @@
+ok - cold-cache: threshold is 55 minutes by default, minutes or off when set, and malformed values refuse
+ok - cold-cache: only a valid, current-incarnation idle record older than the threshold is cold
+ok - cold-cache: park needs a cold declared wait, no unread steer, no pending relaunch, and ship or scout scope
+ok - cold-cache: the default note names the brief, the local copy, and the last three status events
+ok - fm-send: a cold ship is refused with the relaunch command, --cold-ok overrides, a parked ship always refuses
+ok - fm-send: a cold secondmate is out of scope

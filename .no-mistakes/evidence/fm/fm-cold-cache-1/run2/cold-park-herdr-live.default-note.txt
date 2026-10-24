@@ -1,0 +1,8 @@
+This is a fresh session replacing an earlier worker on this task. Its conversation is gone; the local copy, its commits, and its uncommitted changes are all still here.
+Instructions: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/data/cp1/brief.md
+Branch: (detached)
+HEAD: bcd82ad init
+Uncommitted paths: 0
+Last status events:
+  needs-decision [at=1792877575] [key=k1]: awaiting instruction
+Read the instructions, check the local copy, then continue from the latest status. Firstmate may send a follow-up message right after this one.

@@ -1,0 +1,26 @@
+== fm-crew-state
+ok - captured AXI parked status replays through crew-state
+ok - genuine parked run is not flagged superseded
+ok - the parked human-decision component is derived from the findings table's action column
+ok - scalar gate parked run is not flagged superseded
+ok - gate block parked run is not flagged superseded
+ok - a launch parked on a recognized interactive prompt never reads working, closing the absorb path a stale watcher poll depends on
+ok - a cold-parked worker reports its declared wait and the resume command
+ok - a parked run keeps the strict head rule without pipeline_owned
+ok - run_parked_scalar_gate_running keeps the strict head rule despite its live status word
+ok - run_parked_in_gate_block keeps the strict head rule despite its live status word
+ok - a parked gate survives a dead daemon with its findings intact
+ok - the selected route keeps an anchored parked run's gate with a dead daemon
+rc=
+== fm-control-relaunch
+ok - fm-control relaunch: a parked ship gets the default note and loses its parked marker
+rc=
+== fm-watch-triage
+ok - crew_is_provably_working: only working+run-step/pane is provable; idle/finished/parked/failed/unknown surface
+ok - the watcher hands a cold worker waiting on a declared wait to park
+ok - the watcher never parks a busy worker
+ok - a parked live worker surfaces once, absorbs pane churn for the whole re-surface window, then re-surfaces when it elapses
+ok - a parked human-owed gate is deferred only while its decision is still open, so an answered-but-unrelayed gate, an unescalated one, and one holding only a blocker all keep the unchanged ladder
+ok - with config/wedge-defer-parked-gate absent a parked gate keeps the unchanged ladder, wording and reads
+ok - parked, terminal, ci-monitoring, coarse, runless, absent and unreadable runs keep the unchanged wedge ladder
+rc=

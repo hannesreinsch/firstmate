@@ -1,0 +1,7 @@
+PASS S1 cold steer refused (exit 4), relaunch command printed, no inbox record, note file written
+PASS S2 --cold-ok steer delivered and the worker started a turn
+FAIL S3 park rc=1 marker=ls: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.QLCmR4/state/cp1.cold-parked: No such file or directory k2=1
+FAIL S4 marker= gone=0
+FAIL S5 rc=0
+FAIL S6 rc=1 T2=fm-lab-coldpark-57286-5567:w1:p2 st=working
+FAIL S7 rc=0 gone=1

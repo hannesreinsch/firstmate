@@ -1,0 +1,83 @@
+
+### scaffold brief and spawn a real Claude scout on Herdr
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-brief.sh cp1 coldp --scout
+scaffolded: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/data/cp1/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-spawn.sh cp1 /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/projects/coldp --scout --harness claude --model haiku --backend herdr
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+warning: herdr presentation parent is absent or ambiguous; using the ordinary flat layout without projection
+spawned cp1 harness=claude kind=scout window=fm-lab-coldpark-9041-1847:w1:p2 worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/projects/coldp/.treehouse/coldp-da6dfe/1/coldp
+[exit 0]
+endpoint=fm-lab-coldpark-9041-1847:w1:p2
+busy-state: v1 gen=g1792877566.12323.12909 seq=3 state=idle source=claude-hook event=stop ts=1792877580
+
+### S1: fm-send to a worker idle past the threshold is refused before anything is recorded
+$ fm-send.sh cp1 "please append hello"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-cold-cache-lib.sh: line 136: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.cold-parked: No such file or directory
+refused: steer to cp1 not sent: its session has been idle 1 minutes, past the prompt-cache window, so this steer would pay for its whole context again.
+Start a fresh session from its instructions plus a short note, then resend:
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh cp1 relaunch --note-file /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.cold-relaunch-note
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh cp1 please\ append\ hello
+To wake the old session anyway, add --cold-ok before the message.
+[exit 4]
+PASS S1 cold steer refused (exit 4), relaunch command printed, no inbox record, note file written
+
+### S2: --cold-ok delivers anyway; S3: park refuses the now-busy worker and does not interrupt it
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh cp1 --cold-ok Use your Bash tool once, in the foreground (do not use run_in_background), to run exactly: python3 -c 'import time; time.sleep(30)' After it finishes, append exactly needs-decision [at=<epoch>] [key=k2]: awaiting second instruction to /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.status and stop.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+[exit 0]
+PASS S2 --cold-ok steer delivered and the worker started a turn
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh cp1 park
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+error: task cp1 is not eligible to park: not provably idle past the cold-cache threshold
+[exit 1]
+PASS S3 park refused a busy worker (exit 1, herdr status=working), no marker, the worker finished its turn uninterrupted
+
+### S4: the watcher parks the cold paused worker on its own and closes its Herdr pane
+signal: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.status /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.turn-ended
+check: rearm-resurface
+check: rearm-resurface
+check: rearm-resurface
+check: rearm-resurface
+check: rearm-resurface
+FAIL S4 marker= gone=0
+
+### S5: a parked worker refuses every text steer, --cold-ok included
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh cp1 --cold-ok hello
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+FAIL S5 rc=0
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-crew-state.sh cp1
+state: working · source: pane · harness busy (claude-hook)
+[exit 0]
+
+### S6: relaunch without --note uses the default note, opens a fresh Herdr endpoint, removes the marker
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh cp1 relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+error: relaunch of a scout task requires --note (or --note-file): the replacement worker inherits the local copy but none of the conversation, so it must be told what happened
+[exit 1]
+FAIL S6 rc=1 T2=fm-lab-coldpark-9041-1847:w1:p2 st=working
+
+### S7: fm-park-stopped closes the pane of a worker whose agent already stopped
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh cp1 exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+stopped cp1 harness=claude backend=herdr endpoint=fm-lab-coldpark-9041-1847:w1:p2 worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/projects/coldp/.treehouse/coldp-da6dfe/1/coldp
+[exit 0]
+$ fm-park-stopped.sh
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei
+summary: parked=1 skipped=0 failed=0
+[exit 0]
+PASS S7 fm-park-stopped parked the stopped worker and its pane w1:p2 is gone
+
+### teardown
+herdr lab fm-lab-coldpark-9041-1847 torn down

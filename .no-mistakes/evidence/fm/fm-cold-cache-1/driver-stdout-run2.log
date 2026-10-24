@@ -1,0 +1,106 @@
+worker c1: session=fm-lab-coldpark-71612-23468 workspace=w1 tab=w1:t1 pane=w1:p1
+claude 2.1.310 (Claude Code) idle in lab pane
+== S1 warm worker (idle 5 min): steer is delivered
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 Reply with exactly WARMTOKEN1 and nothing else.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[exit 0]
+WARMTOKEN1 occurrences on screen: 0
+== S2 cold worker (idle 2h): steer refused with relaunch command, nothing typed
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 Reply with exactly COLDTOKEN2 and nothing else.
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+refused: steer to c1 not sent: its session has been idle 120 minutes, past the prompt-cache window, so this steer would pay for its whole context again.
+Start a fresh session from its instructions plus a short note, then resend:
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 relaunch --note-file /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/state/c1.cold-relaunch-note
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 Reply\ with\ exactly\ COLDTOKEN2\ and\ nothing\ else.
+To wake the old session anyway, add --cold-ok before the message.
+[exit 4]
+COLDTOKEN2 on screen before=0 after=0; note file: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/state/c1.cold-relaunch-note
+--- default note ---
+This is a fresh session replacing an earlier worker on this task. Its conversation is gone; the local copy, its commits, and its uncommitted changes are all still here.
+Instructions: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/data/c1/brief.md
+Branch: master
+HEAD: 9661383 init
+Uncommitted paths: 0
+Last status events:
+  paused [at=1]: waiting on review
+Read the instructions, check the local copy, then continue from the latest status. Firstmate may send a follow-up message right after this one.
+== S3 cold worker, --cold-ok: steer delivered anyway
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 --cold-ok Reply with exactly COLDOKTOKEN3 and nothing else.
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+[exit 0]
+COLDOKTOKEN3 occurrences on screen: 1
+== S4 adversarial: busy record -> park refuses, agent untouched
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 park
+error: task c1 is not eligible to park: not provably idle past the cold-cache threshold
+[exit 1]
+agent status after refused park: idle; marker: ls: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/state/c1.cold-parked: No such file or directory
+== S5 adversarial: cold but latest status 'working' -> park refuses
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 park
+error: task c1 is not eligible to park: latest status is not a declared wait
+[exit 1]
+== S6 park an eligible cold worker on Herdr: agent stopped, pane/tab/workspace closed, marker written
+workspaces before: [{"workspace_id":"w1","label":"fm-c1"}]
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 park
+parked c1 agent=stopped endpoint=closed harness=claude backend=herdr worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/wt-c1 (idle 7201s)
+resume: FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 relaunch
+[exit 0]
+workspaces after: []
+pane get after park: {"error":{"code":"pane_not_found","message":"pane w1:p1 not found"},"id":"cli:pane:get"}
+--- marker ---
+parked_at=1792880270
+status=paused [at=3]: waiting on review
+endpoint=closed
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 park
+already-parked c1 endpoint=closed worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/wt-c1
+[exit 0]
+== S7 steer to a parked worker is refused, even with --cold-ok
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 hello
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+refused: steer to c1 not sent: its agent was stopped on purpose to save tokens (cold-parked), so no session is running to read a steer.
+Start a fresh session from its instructions plus a short note, then resend:
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 relaunch --note-file /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/state/c1.cold-relaunch-note
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 hello
+[exit 4]
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 --cold-ok hello
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+refused: steer to c1 not sent: its agent was stopped on purpose to save tokens (cold-parked), so no session is running to read a steer.
+Start a fresh session from its instructions plus a short note, then resend:
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 relaunch --note-file /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/state/c1.cold-relaunch-note
+  FM_HOME=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-send.sh c1 --cold-ok hello
+[exit 4]
+== S8 fm-park-stopped closes a stopped worker's leftover shell pane
+worker s2 (shell only, agent stopped): workspace=w2 pane=w2:p1
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-park-stopped.sh --dry-run
+would-park s2 backend=herdr
+summary: would-park=1 skipped=0
+[exit 0]
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-park-stopped.sh
+parked s2 agent=already-stopped endpoint=closed harness=claude backend=herdr worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/wt-s2 
+summary: parked=1 skipped=0 failed=0
+[exit 0]
+workspaces after park-stopped: []
+== S9 relaunch a parked worker with no --note
+$ /Users/hannesreinsch/.no-mistakes/worktrees/f53036c37e53/01M5QTZ1CYTEKVE59XTJPZ6YR7/bin/fm-control.sh c1 relaunch
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/data/c1/launch-brief.md records no ship branch; defaulting to legacy branch fm/c1
+warning: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/data/c1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode  - confirm its definition of done matches
+notice: c1 ships mode= while the standing posture for wt-c1 is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error: 'herdr status --json' failed; is herdr installed correctly?
+error: task c1's endpoint could not be re-created in its recorded herdr session 'fm-lab-coldpark-71612-23468'; see the refusal above for what failed
+error: the replacement agent for c1 could not be launched on claude
+error: c1's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/wt-c1
+[exit 1]
+marker after relaunch: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fmcold.6YBCBB/home/state/c1.cold-parked
+window=fm-lab-coldpark-71612-23468:w1:p1
+herdr_workspace_id=w1
+herdr_pane_id=w1:p1
+relaunched pane w1:p1 agent status: 
+workspaces after relaunch: []
+relaunched screen mentions fresh-session note: 0
+teardown: ok

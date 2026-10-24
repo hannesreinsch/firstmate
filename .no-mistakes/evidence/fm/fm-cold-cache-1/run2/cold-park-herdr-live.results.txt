@@ -1,0 +1,7 @@
+PASS S1 cold steer refused (exit 4), relaunch command printed, no inbox record, note file written
+PASS S2 --cold-ok steer delivered and the worker started a turn
+PASS S3 park refused a busy worker (exit 1, herdr status=working), no marker, the worker finished its turn uninterrupted
+FAIL S4 marker= gone=0
+FAIL S5 rc=0
+FAIL S6 rc=1 T2=fm-lab-coldpark-9041-1847:w1:p2 st=working
+PASS S7 fm-park-stopped parked the stopped worker and its pane w1:p2 is gone

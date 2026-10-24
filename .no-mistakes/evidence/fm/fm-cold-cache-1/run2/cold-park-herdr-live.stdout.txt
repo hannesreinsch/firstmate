@@ -1,0 +1,41 @@
+
+### scaffold brief and spawn a real Claude scout on Herdr
+
+### S1: fm-send to a worker idle past the threshold is refused before anything is recorded
+PASS S1 cold steer refused (exit 4), relaunch command printed, no inbox record, note file written
+
+### S2: --cold-ok delivers anyway; S3: park refuses the now-busy worker and does not interrupt it
+PASS S2 --cold-ok steer delivered and the worker started a turn
+PASS S3 park refused a busy worker (exit 1, herdr status=working), no marker, the worker finished its turn uninterrupted
+
+### S4: the watcher parks the cold paused worker on its own and closes its Herdr pane
+FAIL S4 marker= gone=0
+
+### S5: a parked worker refuses every text steer, --cold-ok included
+FAIL S5 rc=0
+
+### S6: relaunch without --note uses the default note, opens a fresh Herdr endpoint, removes the marker
+FAIL S6 rc=1 T2=fm-lab-coldpark-9041-1847:w1:p2 st=working
+
+### S7: fm-park-stopped closes the pane of a worker whose agent already stopped
+PASS S7 fm-park-stopped parked the stopped worker and its pane w1:p2 is gone
+
+### teardown
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/pre-rebase: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/pre-applypatch: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/pre-auto-gc: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/pre-merge-commit: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/post-commit: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/sendemail-validate: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/applypatch-msg: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/prepare-commit-msg: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/post-checkout: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/post-applypatch: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/post-rewrite: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/commit-msg: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/pre-push: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/post-merge: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks/pre-commit: Permission denied
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state/cp1.git-hooks: Directory not empty
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei/state: Directory not empty
+rm: /private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.BK07ei: Directory not empty

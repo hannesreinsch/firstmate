@@ -1,0 +1,5 @@
+PASS S1 cold steer refused (exit 4), relaunch command printed, no inbox record, note file written
+PASS S4 watcher parked cp1: marker written, endpoint=closed, pane w1:p2 gone from the lab session
+PASS S5 send to parked worker refused with --cold-ok (exit 4)
+PASS S6 relaunch rc=0 new endpoint fm-lab-coldpark-38317-18601:w2:p2 agent_status=working, marker removed
+PASS S7 fm-park-stopped parked the stopped worker and its pane w2:p2 is gone

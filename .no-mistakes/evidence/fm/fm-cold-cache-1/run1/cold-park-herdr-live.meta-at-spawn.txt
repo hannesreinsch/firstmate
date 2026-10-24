@@ -1,0 +1,17 @@
+window=fm-lab-coldpark-57286-5567:w1:p2
+endpoint_task_id=cp1
+worktree=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.QLCmR4/projects/coldp/.treehouse/coldp-f9f0a7/1/coldp
+project=/private/var/folders/7d/57kv_hqd37q961hg14j0_6gc0000gn/T/fm-lab.QLCmR4/projects/coldp
+harness=claude
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-cp1
+model=haiku
+effort=default
+busy_gen=g1792876818.60053.1999
+spawn_gen=s1792876819.57714.7612
+backend=herdr
+herdr_session=fm-lab-coldpark-57286-5567
+herdr_workspace_id=w1
+herdr_tab_id=w1:t2
+herdr_pane_id=w1:p2
