@@ -443,14 +443,16 @@ write_mr_json() {
   if [ "$pipeline" = present ]; then
     pipeline=$(printf '{"sha":"%s","status":"%s"}' "$pipeline_sha" "$pipeline_status")
   fi
-  printf '{"iid":7,"state":"%s","detailed_merge_status":"%s","has_conflicts":%s,' \
-    "$state" "$detail" "$conflicts" > "$file"
-  printf '"blocking_discussions_resolved":%s,"sha":"%s","head_pipeline":%s,' \
-    "$discussions" "$head" "$pipeline" >> "$file"
-  printf '"merge_when_pipeline_succeeds":%s,"merge_after":%s,' \
-    "$merge_when_pipeline_succeeds" "$merge_after" >> "$file"
-  printf '"source_branch":"%s","source_project_id":%s,"target_project_id":%s}\n' \
-    "$source_branch" "$source_project_id" "$target_project_id" >> "$file"
+  {
+    printf '{"iid":7,"state":"%s","detailed_merge_status":"%s","has_conflicts":%s,' \
+      "$state" "$detail" "$conflicts"
+    printf '"blocking_discussions_resolved":%s,"sha":"%s","head_pipeline":%s,' \
+      "$discussions" "$head" "$pipeline"
+    printf '"merge_when_pipeline_succeeds":%s,"merge_after":%s,' \
+      "$merge_when_pipeline_succeeds" "$merge_after"
+    printf '"source_branch":"%s","source_project_id":%s,"target_project_id":%s}\n' \
+      "$source_branch" "$source_project_id" "$target_project_id"
+  } > "$file"
 }
 
 # tea mock recording every invocation, so a test can prove the login and
