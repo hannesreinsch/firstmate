@@ -203,8 +203,8 @@
 #   owns the claim and bin/fm-teardown.sh owns what it protects. Treehouse hands
 #   out any slot with no process inside it, so before claiming, the spawn
 #   refuses a slot that another task record in any local home still names
-#   (fm_treehouse_slot_recorded_by), leaving that slot, claim, and copy
-#   untouched. A slot that cannot be claimed refuses the spawn rather than launching a worker whose slot
+#   (fm_treehouse_slot_recorded_by), leaving that copy and claim untouched and
+#   leasing the slot in place to that task so no later get is handed it. A slot that cannot be claimed refuses the spawn rather than launching a worker whose slot
 #   could later be released out from under its successor. A spawn that aborts
 #   while it still holds the allocation lock drops its own claim; an abort after
 #   metadata publication has released that lock leaves the claim in place, and
@@ -4203,14 +4203,21 @@ validate_spawn_worktree() { # <source> <inspect-target>
   fi
 }
 
-# refuse_recorded_spawn_slot <source> <inspect-target>: stop before this spawn
-# claims, branches, or resets a pool slot that another task record on this
-# machine still names. Treehouse hands out any slot with no process inside it,
-# which a live task's slot is whenever its worker has no process there, so the
-# records are the authority (bin/fm-wake-lib.sh's fm_treehouse_slot_recorded_by).
-# Runs under the Treehouse project lock, before the slot is touched.
-refuse_recorded_spawn_slot() { # <source> <inspect-target>
-  local source=$1 inspect_target=$2 rc
+# refuse_recorded_spawn_slot <source> <inspect-target> [leased]: stop before
+# this spawn claims, branches, or resets a pool slot that another task record on
+# this machine still names. Treehouse hands out any slot with no process inside
+# it, which a live task's slot is whenever its worker has no process there, so
+# the records are the authority (bin/fm-wake-lib.sh's
+# fm_treehouse_slot_recorded_by). Runs under the Treehouse project lock, before
+# the slot is touched.
+# The refused slot is then durably leased in place to the task that records it
+# (`treehouse lease` changes pool state only, never the copy), so the next get
+# is handed another slot instead of this one again; that task's own cleanup
+# returns the slot and releases the lease. A slot this spawn already holds
+# through `get --lease` ("leased") keeps that lease, which protects it the same
+# way.
+refuse_recorded_spawn_slot() { # <source> <inspect-target> [leased]
+  local source=$1 inspect_target=$2 leased=${3:-} rc slot_name protection
   rc=0
   fm_treehouse_slot_recorded_by "$WT" "$STATE/$ID.meta" "$STATE" || rc=$?
   case "$rc" in
@@ -4220,7 +4227,15 @@ refuse_recorded_spawn_slot() { # <source> <inspect-target>
       exit 1
       ;;
   esac
-  echo "error: $source handed out $WT, which is still task $FM_TREEHOUSE_SLOT_RECORD_ID's recorded $FM_TREEHOUSE_SLOT_RECORD_FIELD ($FM_TREEHOUSE_SLOT_RECORD_META); Treehouse saw no process inside it, but that task's record still holds it, so $ID was not launched and the slot, its claim, and its copy were left untouched. Do not return that slot by hand while the record stands; reconcile it with bin/fm-crew-state.sh $FM_TREEHOUSE_SLOT_RECORD_ID, then dispatch $ID again. Inspect target $inspect_target" >&2
+  slot_name=$(basename "$(dirname "$(real_path_or_raw "$WT")")")
+  if [ -n "$leased" ]; then
+    protection="it stays leased to $ID, so no later spawn is handed it"
+  elif (cd "$PROJ_ABS" && treehouse lease "$slot_name" --lease-holder "$FM_TREEHOUSE_SLOT_RECORD_ID") >/dev/null 2>&1; then
+    protection="it is now leased in place to $FM_TREEHOUSE_SLOT_RECORD_ID, so no later spawn is handed it"
+  else
+    protection="leasing it in place failed, so a later spawn may be handed it again until 'treehouse lease $slot_name --lease-holder $FM_TREEHOUSE_SLOT_RECORD_ID' is run from $PROJ_ABS"
+  fi
+  echo "error: $source handed out $WT, which is still task $FM_TREEHOUSE_SLOT_RECORD_ID's recorded $FM_TREEHOUSE_SLOT_RECORD_FIELD ($FM_TREEHOUSE_SLOT_RECORD_META); Treehouse saw no process inside it, but that task's record still holds it, so $ID was not launched and the copy and its claim were left untouched; $protection. Dispatch $ID again for another slot. Do not return this slot by hand while that record stands, because a return resets the copy. Inspect target $inspect_target" >&2
   exit 1
 }
 
@@ -4930,7 +4945,7 @@ EOF
       }
       [ -n "$WT" ] || { echo "error: treehouse get --lease did not report a worktree for $ID" >&2; exit 1; }
       validate_spawn_worktree "treehouse get --lease" "$WT (leased to $ID; once inspected, release it with 'treehouse return --force $WT' from $PROJ_ABS)"
-      refuse_recorded_spawn_slot "treehouse get --lease" "$WT (it stays leased to $ID, which also keeps later spawns off it)"
+      refuse_recorded_spawn_slot "treehouse get --lease" "$WT" leased
       T3CODE_LEASED=1
       freshen_spawn_worktree_base "$WT" "$BASE_BRANCH" || {
         if [ "$?" -eq 2 ]; then
@@ -5599,7 +5614,8 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   # Written under the Treehouse project lock held from before slot allocation
   # through metadata publication, so no other spawn or return sees a half-claim.
   if fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
-    refuse_recorded_spawn_slot "treehouse get" "$(spawn_endpoint_hint)"
+    # The t3code lease path checked the slot before its base refresh.
+    [ "$BACKEND" = t3code ] || refuse_recorded_spawn_slot "treehouse get" "$(spawn_endpoint_hint)"
     if ! fm_treehouse_slot_owner_claim "$WT" "$ID" "$FM_HOME"; then
       echo "error: could not claim Treehouse pool slot $WT for task $ID; refusing to launch a worker whose slot cannot later be proved to be its own; $(spawn_endpoint_hint)" >&2
       exit 1

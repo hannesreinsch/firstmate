@@ -1792,6 +1792,7 @@ fm_treehouse_slot_owner_release() {  # <worktree> <task-id>
 # shellcheck disable=SC2034 # Output globals, read by the sourcing caller.
 fm_treehouse_slot_recorded_by() {  # <worktree> <own-meta> <first-state>
   local worktree=$1 own=$2 first=$3 slot state other field other_path other_slot
+  local claim_home known
   local -a states
   FM_TREEHOUSE_SLOT_RECORD_ID=
   FM_TREEHOUSE_SLOT_RECORD_FIELD=
@@ -1799,10 +1800,17 @@ fm_treehouse_slot_recorded_by() {  # <worktree> <own-meta> <first-state>
   slot=$(CDPATH='' cd -- "$worktree" 2>/dev/null && pwd -P) || return 1
   fm_local_firstmate_state_dirs "$first" || return 2
   states=("${FM_LOCAL_FIRSTMATE_STATES[@]}")
-  fm_treehouse_slot_owner_state "$slot" ""
-  if [ "$FM_TREEHOUSE_SLOT_OWNER" = other ] && [ -n "$FM_TREEHOUSE_SLOT_OWNER_HOME" ] &&
-    [ -d "$FM_TREEHOUSE_SLOT_OWNER_HOME/state" ]; then
-    states+=("$FM_TREEHOUSE_SLOT_OWNER_HOME/state")
+  # Read the claimant's home without disturbing a caller's slot-owner verdict.
+  claim_home=$(
+    fm_treehouse_slot_owner_state "$slot" ""
+    printf '%s' "$FM_TREEHOUSE_SLOT_OWNER_HOME"
+  )
+  if [ -n "$claim_home" ] && [ -d "$claim_home/state" ]; then
+    known=0
+    for state in "${states[@]}"; do
+      [ "$state" -ef "$claim_home/state" ] && known=1
+    done
+    [ "$known" = 1 ] || states+=("$claim_home/state")
   fi
   for state in "${states[@]}"; do
     for other in "$state"/*.meta; do
