@@ -2508,20 +2508,8 @@ teardown_live_slot_path() {
   canonical_existing_dir "$WT"
 }
 
-# Every local Firstmate state directory whose records can name a pool slot this
-# task's slot might also be; bin/fm-wake-lib.sh's fm_local_firstmate_state_dirs
-# owns the walk and what it refuses.
-collect_local_firstmate_states() {
-  fm_local_firstmate_state_dirs "$1" || {
-    echo "REFUSED: $FM_LOCAL_FIRSTMATE_ERROR; nothing was changed" >&2
-    return 1
-  }
-  TREEHOUSE_OWNER_STATES=("${FM_LOCAL_FIRSTMATE_STATES[@]}")
-}
-
 require_exclusive_worktree_slot_record() {
-  local record_meta=$1 record_id=$2 record_state=$3 worktree=$4
-  local slot state_dir other other_id field other_path other_slot
+  local record_meta=$1 record_id=$2 record_state=$3 worktree=$4 slot rc
   slot=$(canonical_existing_dir "$worktree") || return 0
   # A slot whose owner claim names another task was reassigned, so this record's
   # teardown is records-only and touches nothing under it; another record naming
@@ -2529,28 +2517,21 @@ require_exclusive_worktree_slot_record() {
   # block the claimant's own teardown behind it.
   fm_treehouse_slot_owner_state "$slot" "$record_id"
   [ "$FM_TREEHOUSE_SLOT_OWNER" != other ] || return 0
-  collect_local_firstmate_states "$record_state" || return 1
-  for state_dir in "${TREEHOUSE_OWNER_STATES[@]}"; do
-    for other in "$state_dir"/*.meta; do
-      [ -f "$other" ] && [ ! -L "$other" ] || continue
-      # Identity, not spelling: the same record reached through a differently
-      # resolved state dir (e.g. a symlinked $FM_HOME) is still this record. A
-      # differently named hardlink is another task's record, so the name must
-      # match too.
-      [ "${other##*/}" = "${record_meta##*/}" ] && [ "$other" -ef "$record_meta" ] && continue
-      other_id=$(basename "$other" .meta)
-      for field in worktree home; do
-        other_path=$(fm_meta_get "$other" "$field")
-        [ -n "$other_path" ] || continue
-        other_slot=$(canonical_existing_dir "$other_path") || continue
-        [ "$other_slot" = "$slot" ] || continue
-        echo "REFUSED: task $record_id's recorded worktree $slot is also task $other_id's recorded $field." >&2
-        echo "Returning that pool slot would kill $other_id's processes and reset its copy, so nothing was changed - not even with --force." >&2
-        echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $record_id; bin/fm-crew-state.sh $other_id), then re-run teardown." >&2
-        return 1
-      done
-    done
-  done
+  # bin/fm-wake-lib.sh's fm_treehouse_slot_recorded_by owns the scan of every
+  # local home's records and what it refuses.
+  rc=0
+  fm_treehouse_slot_recorded_by "$slot" "$record_meta" "$record_state" || rc=$?
+  case "$rc" in
+    1) return 0 ;;
+    2)
+      echo "REFUSED: $FM_LOCAL_FIRSTMATE_ERROR; nothing was changed" >&2
+      return 1
+      ;;
+  esac
+  echo "REFUSED: task $record_id's recorded worktree $slot is also task $FM_TREEHOUSE_SLOT_RECORD_ID's recorded $FM_TREEHOUSE_SLOT_RECORD_FIELD." >&2
+  echo "Returning that pool slot would kill $FM_TREEHOUSE_SLOT_RECORD_ID's processes and reset its copy, so nothing was changed - not even with --force." >&2
+  echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $record_id; bin/fm-crew-state.sh $FM_TREEHOUSE_SLOT_RECORD_ID), then re-run teardown." >&2
+  return 1
 }
 
 require_exclusive_task_worktree_slot() {
