@@ -363,7 +363,10 @@ SH
 
 # glab mock recording every invocation together with the GITLAB_HOST it was
 # given, so a test can prove the instance came from the URL. `mr view` answers
-# from the case's JSON payload; marker files in the case dir drive the failure
+# from the case's JSON payload; `api` answers the project read with a
+# default_branch from glab-default-branch (main when absent) and the open merge
+# requests targeting a branch from glab-open-based.json (none when absent);
+# marker files in the case dir drive the failure
 # modes, so no test has to leak environment into a shared runner.
 add_glab_mock() {
   local case_dir=$1
@@ -386,6 +389,19 @@ case "${1:-} ${2:-}" in
     : > "$case_dir/glab-merge-called"
     exit 0
     ;;
+  "api --hostname")
+    case "${4:-}" in
+      */merge_requests\?*)
+        [ ! -e "$case_dir/glab-open-based-fails" ] || exit 1
+        cat "$case_dir/glab-open-based.json" 2>/dev/null || printf '[]\n'
+        ;;
+      *)
+        [ ! -e "$case_dir/glab-repo-fails" ] || exit 1
+        printf '{"default_branch":"%s"}\n' "$(cat "$case_dir/glab-default-branch" 2>/dev/null || echo main)"
+        ;;
+    esac
+    exit 0
+    ;;
 esac
 exit 0
 SH
@@ -402,6 +418,7 @@ write_mr_json() {
   local state=opened detail=mergeable conflicts=false discussions=true
   local head=$MR_HEAD pipeline_sha=$MR_HEAD pipeline_status=success pipeline=present
   local merge_when_pipeline_succeeds=false merge_after=null
+  local source_branch=fm/task-x1 source_project_id=1 target_project_id=1
   shift
   for kv in "$@"; do
     key=${kv%%=*}
@@ -417,6 +434,9 @@ write_mr_json() {
       pipeline) pipeline=$value ;;
       merge_when_pipeline_succeeds) merge_when_pipeline_succeeds=$value ;;
       merge_after) merge_after=$value ;;
+      source_branch) source_branch=$value ;;
+      source_project_id) source_project_id=$value ;;
+      target_project_id) target_project_id=$value ;;
       *) fail "write_mr_json: unknown field '$key'" ;;
     esac
   done
@@ -427,8 +447,10 @@ write_mr_json() {
     "$state" "$detail" "$conflicts" > "$file"
   printf '"blocking_discussions_resolved":%s,"sha":"%s","head_pipeline":%s,' \
     "$discussions" "$head" "$pipeline" >> "$file"
-  printf '"merge_when_pipeline_succeeds":%s,"merge_after":%s}\n' \
+  printf '"merge_when_pipeline_succeeds":%s,"merge_after":%s,' \
     "$merge_when_pipeline_succeeds" "$merge_after" >> "$file"
+  printf '"source_branch":"%s","source_project_id":%s,"target_project_id":%s}\n' \
+    "$source_branch" "$source_project_id" "$target_project_id" >> "$file"
 }
 
 # tea mock recording every invocation, so a test can prove the login and
@@ -440,7 +462,9 @@ write_mr_json() {
 # absent, so a case can put a failing context past the first page; a POST to
 # .../pulls/<n>/merge is the one path that can actually record a merge. The
 # repository read /repos/{owner}/{repo} answers from tea-repo.json, or a
-# default_merge_style of merge when that file is absent.
+# default_merge_style of merge and a default_branch of main when that file is
+# absent. The open pull request list answers its first page from
+# tea-open-pulls.json (none when absent) and an empty page after it.
 # Verified against a real Forgejo instance that "tea api" reports an
 # HTTP-level failure with exit status 0 and the error only in the body
 # (docs/forgejo-tea-integration.md), so every branch here exits 0 too - a test
@@ -498,8 +522,15 @@ case "$endpoint" in
     if [ -e "$log_dir/tea-repo.json" ]; then
       cat "$log_dir/tea-repo.json"
     else
-      printf '{"default_merge_style":"merge"}\n'
+      printf '{"default_merge_style":"merge","default_branch":"main"}\n'
     fi
+    ;;
+  */pulls\?*)
+    [ ! -e "$log_dir/tea-open-pulls-fails" ] || exit 1
+    case "$endpoint" in
+      *"&page=1") cat "$log_dir/tea-open-pulls.json" 2>/dev/null || printf '[]\n' ;;
+      *) printf '[]\n' ;;
+    esac
     ;;
   */merge)
     if [ -e "$log_dir/tea-merge-fails" ]; then
@@ -542,6 +573,7 @@ SH
 write_forgejo_pr_json() {
   local file=$1 kv key value
   local state=open mergeable=true merged=false draft=false head=$FJ_HEAD
+  local head_ref=fm/task-x1 head_repo_id=1 base_repo_id=1
   shift
   for kv in "$@"; do
     key=${kv%%=*}
@@ -552,11 +584,16 @@ write_forgejo_pr_json() {
       merged) merged=$value ;;
       draft) draft=$value ;;
       head) head=$value ;;
+      head_ref) head_ref=$value ;;
+      head_repo_id) head_repo_id=$value ;;
+      base_repo_id) base_repo_id=$value ;;
       *) fail "write_forgejo_pr_json: unknown field '$key'" ;;
     esac
   done
-  printf '{"state":"%s","mergeable":%s,"merged":%s,"draft":%s,"head":{"sha":"%s"}}\n' \
-    "$state" "$mergeable" "$merged" "$draft" "$head" > "$file"
+  printf '{"state":"%s","mergeable":%s,"merged":%s,"draft":%s,' \
+    "$state" "$mergeable" "$merged" "$draft" > "$file"
+  printf '"head":{"sha":"%s","ref":"%s","repo_id":%s},"base":{"repo_id":%s}}\n' \
+    "$head" "$head_ref" "$head_repo_id" "$base_repo_id" >> "$file"
 }
 
 # write_forgejo_status_json <file> [state=<value>] [total_count=<n>]
@@ -2541,7 +2578,7 @@ test_forgejo_merge_method_and_extra_args() {
   # whichever style it is.
   for style in squash rebase merge; do
     case_dir=$(make_forgejo_case "forgejo-default-method-$style")
-    printf '{"default_merge_style":"%s"}\n' "$style" > "$case_dir/tea-repo.json"
+    printf '{"default_merge_style":"%s","default_branch":"main"}\n' "$style" > "$case_dir/tea-repo.json"
     run_pr_merge "$case_dir" task-x1 "$FJ_URL" \
       > "$case_dir/stdout" 2> "$case_dir/stderr" \
       || fail "forgejo-default-method-$style: an unqualified merge should succeed: $(cat "$case_dir/stderr")"
@@ -2551,7 +2588,7 @@ test_forgejo_merge_method_and_extra_args() {
 
   # A named method wins without the repository read deciding anything.
   case_dir=$(make_forgejo_case forgejo-named-beats-default)
-  printf '{"default_merge_style":"rebase"}\n' > "$case_dir/tea-repo.json"
+  printf '{"default_merge_style":"rebase","default_branch":"main"}\n' > "$case_dir/tea-repo.json"
   run_pr_merge "$case_dir" task-x1 "$FJ_URL" -- --merge \
     > "$case_dir/stdout" 2> "$case_dir/stderr" \
     || fail "forgejo-named-beats-default: --merge should succeed"
@@ -3296,6 +3333,96 @@ test_github_long_lived_head_refuses() {
       "github-$label: gh pr merge ran for a head branch the merge would delete"
   done
   pass "fm-pr-merge refuses a GitHub pull request whose head is a long-lived branch the merge would delete"
+}
+
+# GitLab's force_remove_source_branch and Forgejo/Gitea's
+# default_delete_branch_after_merge delete a same-project head branch after the
+# merge just as GitHub's setting does, so the same long-lived heads refuse
+# before the merge call there too. Each case is
+# label|head|fork|default|open-based|fails|expected stderr ("" merges).
+LONG_LIVED_FORGE_CASES=(
+  "head-main|main|false|develop|0||head branch \"main\" is a long-lived branch"
+  "head-master|master|false|main|0||head branch \"master\" is a long-lived branch"
+  "head-develop|develop|false|main|0||head branch \"develop\" is a long-lived branch"
+  "head-default|trunk|false|trunk|0||head branch \"trunk\" is the repository default branch"
+  "head-release-base|release/2026-10-24|false|develop|1||head branch \"release/2026-10-24\" is the base of another open"
+  "head-default-unreadable|topic|false|main|0|repo|the repository default branch could not be read"
+  "head-open-unreadable|topic|false|main|0|open|based on \"topic\" could not be read"
+  "head-fork-main|main|true|main|0||"
+  "head-topic|release/2026-10-24|false|develop|0||"
+)
+
+test_gitlab_long_lived_head_refuses() {
+  local case_dir rc spec label ref fork default based fails expect source_project
+  for spec in "${LONG_LIVED_FORGE_CASES[@]}"; do
+    IFS='|' read -r label ref fork default based fails expect <<< "$spec"
+    source_project=1
+    [ "$fork" = false ] || source_project=2
+    case_dir=$(make_gitlab_case "gitlab-$label" source_branch="$ref" source_project_id="$source_project")
+    printf '%s\n' "$default" > "$case_dir/glab-default-branch"
+    if [ "$based" -gt 0 ]; then
+      printf '[{"iid":2}]\n' > "$case_dir/glab-open-based.json"
+    fi
+    case "$fails" in
+      repo) : > "$case_dir/glab-repo-fails" ;;
+      open) : > "$case_dir/glab-open-based-fails" ;;
+    esac
+
+    set +e
+    run_pr_merge "$case_dir" task-x1 "$MR_URL" \
+      > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    if [ -z "$expect" ]; then
+      expect_code 0 "$rc" "gitlab-$label: an ordinary or fork head branch should merge: $(cat "$case_dir/stderr")"
+      [ -n "$(glab_merge_line "$case_dir/glab.log")" ] \
+        || fail "gitlab-$label: glab mr merge did not run for a head branch the merge leaves alone"
+      continue
+    fi
+    expect_code 1 "$rc" "gitlab-$label: a long-lived head branch must refuse"
+    assert_grep "$expect" "$case_dir/stderr" "gitlab-$label: the long-lived head was not named"
+    [ -z "$(glab_merge_line "$case_dir/glab.log")" ] \
+      || fail "gitlab-$label: glab mr merge ran for a head branch the merge would delete"
+  done
+  pass "fm-pr-merge refuses a GitLab merge request whose head is a long-lived branch the merge would delete"
+}
+
+test_forgejo_long_lived_head_refuses() {
+  local case_dir rc spec label ref fork default based fails expect head_repo
+  for spec in "${LONG_LIVED_FORGE_CASES[@]}"; do
+    IFS='|' read -r label ref fork default based fails expect <<< "$spec"
+    head_repo=1
+    [ "$fork" = false ] || head_repo=2
+    case_dir=$(make_forgejo_case "forgejo-$label" head_ref="$ref" head_repo_id="$head_repo")
+    printf '{"default_merge_style":"merge","default_branch":"%s"}\n' "$default" > "$case_dir/tea-repo.json"
+    if [ "$based" -gt 0 ]; then
+      printf '[{"number":3,"base":{"ref":"main"}},{"number":2,"base":{"ref":"%s"}}]\n' "$ref" \
+        > "$case_dir/tea-open-pulls.json"
+    else
+      printf '[{"number":3,"base":{"ref":"%s-other"}}]\n' "$ref" > "$case_dir/tea-open-pulls.json"
+    fi
+    case "$fails" in
+      repo) printf '{"message":"not found"}\n' > "$case_dir/tea-repo.json" ;;
+      open) : > "$case_dir/tea-open-pulls-fails" ;;
+    esac
+
+    set +e
+    run_pr_merge "$case_dir" task-x1 "$FJ_URL" -- --merge \
+      > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    if [ -z "$expect" ]; then
+      expect_code 0 "$rc" "forgejo-$label: an ordinary or fork head branch should merge: $(cat "$case_dir/stderr")"
+      [ -e "$case_dir/tea-merged" ] \
+        || fail "forgejo-$label: the merge did not run for a head branch the merge leaves alone"
+      continue
+    fi
+    expect_code 1 "$rc" "forgejo-$label: a long-lived head branch must refuse"
+    assert_grep "$expect" "$case_dir/stderr" "forgejo-$label: the long-lived head was not named"
+    [ -z "$(tea_merge_line "$case_dir/tea.log")" ] \
+      || fail "forgejo-$label: the merge ran for a head branch the merge would delete"
+  done
+  pass "fm-pr-merge refuses a Forgejo pull request whose head is a long-lived branch the merge would delete"
 }
 
 # When the base branch advances, GitHub cancels a pull request's in-flight run
@@ -4656,6 +4783,8 @@ test_backend_override_bypasses_unreadable_user_config
 test_github_red_checks_refuse_and_allow_red_waives_named
 test_github_draft_or_unreadable_draft_state_refuses
 test_github_long_lived_head_refuses
+test_gitlab_long_lived_head_refuses
+test_forgejo_long_lived_head_refuses
 test_superseded_failed_check_run_no_longer_refuses
 test_check_runs_never_supersede_status_contexts
 test_current_failed_check_run_still_refuses
