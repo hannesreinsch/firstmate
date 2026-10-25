@@ -18,8 +18,9 @@
 # default_merge_style, read live, and a merge is refused when it cannot be read.
 # A GitHub merge is refused unless every pre-merge condition holds, each read
 # live at merge time rather than taken from recorded metadata: the pull request
-# is open, not a draft, mergeable, free of conflicts, every unwaived check
-# is green at the exact current head commit, where github_checks_not_green below
+# is open, not a draft, mergeable, free of conflicts, not headed by a
+# long-lived branch the merge would delete (github_long_lived_head_refusals
+# below owns which branches count), every unwaived check is green at the exact current head commit, where github_checks_not_green below
 # owns what makes a check green and judges each one by its current run, and
 # every unwaived check the forge requires for the base branch has reported at
 # that head. When mergeable is the only failing condition and reads UNKNOWN,
@@ -1011,6 +1012,40 @@ github_required_checks_missing() {
   ' 2>/dev/null || return 1
 }
 
+# Print why merging this pull request would delete a long-lived branch, or
+# nothing when its head is an ordinary topic branch. GitHub's repository-level
+# delete_branch_on_merge setting removes a same-repository head branch after
+# every merge regardless of what the merge command passed, so merging a
+# back-merge whose head is main, master, develop, the repository's default
+# branch, or the base of another open pull request deletes that branch. The
+# only safe answer is to refuse before the merge and have the back-merge opened
+# from a disposable branch instead. A cross-repository head lives in a fork that
+# the setting never touches. An unreadable fact is reported as a refusal reason
+# rather than taken as safe. Args: head_ref cross_repository
+github_long_lived_head_refusals() {
+  local head=$1 cross=$2 repo default open_bases
+  [ "$cross" = false ] || return 0
+  case "$head" in
+    main|master|develop)
+      printf '  - head branch "%s" is a long-lived branch that merging would delete; open the pull request from a disposable branch instead\n' "$head"
+      return 0
+      ;;
+  esac
+  if ! repo=$(gh api "repos/$PR_OWNER/$PR_REPO" 2>/dev/null) \
+    || ! default=$(printf '%s' "$repo" | jq -er 'if (.default_branch | type) == "string" and .default_branch != "" then .default_branch else error("no default branch") end' 2>/dev/null); then
+    printf '  - the repository default branch could not be read, so a long-lived head branch "%s" cannot be ruled out\n' "$head"
+  elif [ "$head" = "$default" ]; then
+    printf '  - head branch "%s" is the repository default branch, which merging would delete; open the pull request from a disposable branch instead\n' "$head"
+    return 0
+  fi
+  if ! open_bases=$(gh api -X GET "repos/$PR_OWNER/$PR_REPO/pulls" -f state=open -f base="$head" -f per_page=1 2>/dev/null) \
+    || ! open_bases=$(printf '%s' "$open_bases" | jq -er 'if type == "array" then length else error("not a list") end' 2>/dev/null); then
+    printf '  - open pull requests based on "%s" could not be read, so a long-lived head branch cannot be ruled out\n' "$head"
+  elif [ "$open_bases" -gt 0 ]; then
+    printf '  - head branch "%s" is the base of another open pull request, which merging would delete; open the pull request from a disposable branch instead\n' "$head"
+  fi
+}
+
 # Pre-merge conditions from a live PR view, base requirements, and head producers.
 # Sets FM_PR_MERGE_HEAD to the verified head on success. Returns 3, rather than
 # the usual 1, when mergeable=UNKNOWN is the only failing condition, so the
@@ -1019,8 +1054,9 @@ github_verify_mergeable() {
   local json fields line red name covered missing unreported producers runs
   local total=0 named=0 refusals='' mergeable_refusal=''
   local state='' draft='' mergeable='' merge_state='' live_head='' base=''
+  local head_ref='' cross=''
 
-  if ! json=$(gh pr view "$URL" --json state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,statusCheckRollup 2>/dev/null) \
+  if ! json=$(gh pr view "$URL" --json state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,isCrossRepository,baseRefName,statusCheckRollup 2>/dev/null) \
     || [ -z "$json" ]; then
     echo "error: could not read the GitHub pull request state before merging" >&2
     return 1
@@ -1031,7 +1067,9 @@ github_verify_mergeable() {
         "mergeable=" + ((.mergeable // "") | tostring),
         "merge_state=" + ((.mergeStateStatus // "") | tostring),
         "head=" + ((.headRefOid // "") | tostring),
-        "base=" + ((.baseRefName // "") | tostring)
+        "base=" + ((.baseRefName // "") | tostring),
+        "head_ref=" + ((.headRefName // "") | tostring),
+        "cross=" + (if .isCrossRepository == null then "" else .isCrossRepository end | tostring)
       else
         error("pull request payload is not an object")
       end' 2>/dev/null); then
@@ -1046,13 +1084,16 @@ github_verify_mergeable() {
       merge_state=*) merge_state=${line#merge_state=} ;;
       head=*) live_head=${line#head=} ;;
       base=*) base=${line#base=} ;;
+      head_ref=*) head_ref=${line#head_ref=} ;;
+      cross=*) cross=${line#cross=} ;;
       *) continue ;;
     esac
     named=$((named + 1))
   done <<FIELDS
 $fields
 FIELDS
-  if [ "$named" -ne 5 ] || [ "$total" -ne 5 ] || [ -z "$base" ]; then
+  if [ "$named" -ne 7 ] || [ "$total" -ne 7 ] || [ -z "$base" ] || [ -z "$head_ref" ] \
+    || { [ "$cross" != true ] && [ "$cross" != false ]; }; then
     echo "error: could not read the GitHub pull request state before merging" >&2
     return 1
   fi
@@ -1082,6 +1123,9 @@ FIELDS
 "
   [ "$merge_state" != DIRTY ] \
     || refusals="$refusals  - mergeStateStatus is DIRTY (conflicts)
+"
+  line=$(github_long_lived_head_refusals "$head_ref" "$cross")
+  [ -z "$line" ] || refusals="$refusals$line
 "
 
   uncovered=''

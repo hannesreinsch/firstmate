@@ -107,7 +107,7 @@ write_github_live_json() {
   local case_dir=$1 head=$2
   printf '%s\n' "$head" > "$case_dir/github-head"
   cat > "$case_dir/github-view.json" <<JSON
-{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"$head","baseRefName":"main","statusCheckRollup":[{"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"}]}
+{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"$head","headRefName":"fm/task-x1","isCrossRepository":false,"baseRefName":"main","statusCheckRollup":[{"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"}]}
 JSON
 }
 
@@ -115,7 +115,7 @@ write_github_red_json() {
   local case_dir=$1 head=$2 name=$3
   printf '%s\n' "$head" > "$case_dir/github-head"
   cat > "$case_dir/github-view.json" <<JSON
-{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"$head","baseRefName":"main","statusCheckRollup":[{"__typename":"CheckRun","name":"$name","status":"COMPLETED","conclusion":"FAILURE"}]}
+{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"$head","headRefName":"fm/task-x1","isCrossRepository":false,"baseRefName":"main","statusCheckRollup":[{"__typename":"CheckRun","name":"$name","status":"COMPLETED","conclusion":"FAILURE"}]}
 JSON
 }
 
@@ -150,7 +150,7 @@ write_github_rollup_json() {
   done
   printf '%s\n' "$head" > "$case_dir/github-head"
   cat > "$case_dir/github-view.json" <<JSON
-{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"$head","baseRefName":"main","statusCheckRollup":[$rollup]}
+{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"$head","headRefName":"fm/task-x1","isCrossRepository":false,"baseRefName":"main","statusCheckRollup":[$rollup]}
 JSON
 }
 
@@ -263,6 +263,15 @@ case "${1:-} ${2:-}" in
         cat "$FM_TEST_GH_RUNS"
         exit $?
         ;;
+      *" repos/"*"/pulls "*)
+        # Open pull requests based on the head branch: none unless a case
+        # names some.
+        if [ -f "${FM_TEST_GH_OPEN_BASED_FAIL:-}" ]; then
+          exit 1
+        fi
+        cat "$FM_TEST_GH_OPEN_BASED" 2>/dev/null || printf '[]\n'
+        exit 0
+        ;;
       *" repos/"*"/rules/branches/"*merge_queue*) ;;
       *" repos/"*"/rules/branches/"*)
         if [ -f "${FM_TEST_GH_REQUIRED_RULES_FAIL:-}" ]; then
@@ -281,6 +290,14 @@ case "${1:-} ${2:-}" in
         exit 0
         ;;
     esac
+    # The repository itself, read for its default branch.
+    if [ "$#" -eq 2 ] && [[ "$2" =~ ^repos/[^/]+/[^/]+$ ]]; then
+      if [ -f "${FM_TEST_GH_REPO_FAIL:-}" ]; then
+        exit 1
+      fi
+      printf '{"default_branch":"%s"}\n' "$(cat "$FM_TEST_GH_DEFAULT_BRANCH" 2>/dev/null || echo main)"
+      exit 0
+    fi
     if [ -f "${FM_TEST_GH_RULES_FAIL_BODY:-}" ]; then
       cat "$FM_TEST_GH_RULES_FAIL_BODY" >&2
       exit 1
@@ -680,6 +697,10 @@ run_pr_merge() {
   FM_TEST_GH_BRANCH_FAIL="$case_dir/github-branch-fail" \
   FM_TEST_GH_REQUIRED_RULES="$case_dir/github-required-rules.json" \
   FM_TEST_GH_REQUIRED_RULES_FAIL="$case_dir/github-required-rules-fail" \
+  FM_TEST_GH_DEFAULT_BRANCH="$case_dir/github-default-branch" \
+  FM_TEST_GH_REPO_FAIL="$case_dir/github-repo-fail" \
+  FM_TEST_GH_OPEN_BASED="$case_dir/github-open-based.json" \
+  FM_TEST_GH_OPEN_BASED_FAIL="$case_dir/github-open-based-fail" \
   FM_TEST_META_AT_MERGE="$case_dir/meta-at-merge" \
   FM_TEST_AWAY_RECORD_AFTER_VIEW="$case_dir/away-record-after-view" \
   FM_TEST_ROOT="$ROOT" \
@@ -3226,6 +3247,57 @@ test_github_draft_or_unreadable_draft_state_refuses() {
   pass "fm-pr-merge refuses a draft pull request and one with no boolean draft state"
 }
 
+# GitHub's delete_branch_on_merge setting deletes a same-repository head branch
+# after every merge whatever the merge command passed, so a back-merge headed by
+# a long-lived branch must refuse before the merge call. Each case is
+# label|head|cross|default|open-based|fails|expected stderr ("" merges).
+test_github_long_lived_head_refuses() {
+  local case_dir rc head spec label ref cross default based fails expect
+  head=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  for spec in \
+    "head-main|main|false|develop|0||head branch \"main\" is a long-lived branch" \
+    "head-master|master|false|main|0||head branch \"master\" is a long-lived branch" \
+    "head-develop|develop|false|main|0||head branch \"develop\" is a long-lived branch" \
+    "head-default|trunk|false|trunk|0||head branch \"trunk\" is the repository default branch" \
+    "head-release-base|release/2026-10-24|false|develop|1||head branch \"release/2026-10-24\" is the base of another open pull request" \
+    "head-default-unreadable|topic|false|main|0|repo|the repository default branch could not be read" \
+    "head-open-unreadable|topic|false|main|0|open|open pull requests based on \"topic\" could not be read" \
+    "head-fork-main|main|true|main|0||" \
+    "head-topic|release/2026-10-24|false|develop|0||"; do
+    IFS='|' read -r label ref cross default based fails expect <<< "$spec"
+    case_dir=$(make_case "github-$label")
+    add_gh_mocks "$case_dir" "$head"
+    jq -c --arg ref "$ref" --argjson cross "$cross" \
+      '.headRefName = $ref | .isCrossRepository = $cross' \
+      "$case_dir/github-view.json" > "$case_dir/github-view.tmp"
+    mv "$case_dir/github-view.tmp" "$case_dir/github-view.json"
+    printf '%s\n' "$default" > "$case_dir/github-default-branch"
+    if [ "$based" -gt 0 ]; then
+      printf '[{"number":2}]\n' > "$case_dir/github-open-based.json"
+    fi
+    case "$fails" in
+      repo) : > "$case_dir/github-repo-fail" ;;
+      open) : > "$case_dir/github-open-based-fail" ;;
+    esac
+
+    set +e
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/83 \
+      > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    if [ -z "$expect" ]; then
+      expect_code 0 "$rc" "github-$label: an ordinary or fork head branch should merge: $(cat "$case_dir/stderr")"
+      assert_logged_gh_merge "$case_dir" 83 example/repo --squash
+      continue
+    fi
+    expect_code 1 "$rc" "github-$label: a long-lived head branch must refuse"
+    assert_grep "$expect" "$case_dir/stderr" "github-$label: the long-lived head was not named"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" \
+      "github-$label: gh pr merge ran for a head branch the merge would delete"
+  done
+  pass "fm-pr-merge refuses a GitHub pull request whose head is a long-lived branch the merge would delete"
+}
+
 # When the base branch advances, GitHub cancels a pull request's in-flight run
 # and re-triggers it, leaving the cancelled run in the rollup beside the passing
 # re-run while reporting the pull request itself CLEAN. The merge must follow the
@@ -4583,6 +4655,7 @@ test_absent_user_backend_config_directory_and_backlog_still_merge
 test_backend_override_bypasses_unreadable_user_config
 test_github_red_checks_refuse_and_allow_red_waives_named
 test_github_draft_or_unreadable_draft_state_refuses
+test_github_long_lived_head_refuses
 test_superseded_failed_check_run_no_longer_refuses
 test_check_runs_never_supersede_status_contexts
 test_current_failed_check_run_still_refuses
