@@ -3341,3 +3341,19 @@ The full run's native Ahoy cases depend on the model's own choices and failed wi
 
 A real `bin/fm-spawn.sh --scout --harness opencode --model opencode-go/deepseek-v4.1-flash` in a private tmux server recorded `opencode_version=1.18.20` (and `1.18.31` on the second release), launched the worker as `opencode --model opencode-go/deepseek-v4.1-flash --prompt <brief>` with no `--standalone`, and the worker answered its brief.
 `bin/fm-control.sh <task> exit` then resolved the typed `/exit` from that recorded major and returned both panes to the shell.
+
+## Worker session cost transcript
+
+`bin/fm-session-cost.sh` reads a Claude worker's context size from the newest main-chain assistant `usage` entry of its transcript under the Claude config directory, found through the worktree path with every character outside `[A-Za-z0-9]` replaced by `-`.
+That location and those fields are written by Claude Code itself, so `tests/fm-session-cost-claude-live-e2e.test.sh` submits one real Haiku turn in an isolated folder and requires a measured context; run it after every Claude Code upgrade to refresh this record.
+Other harnesses are reported as unsupported rather than measured.
+
+Verified 2026-10-02 on Claude Code 2.1.287, Darwin 25.6.0.
+
+```sh
+FM_SESSION_COST_LIVE_E2E=1 bash tests/fm-session-cost-claude-live-e2e.test.sh
+```
+
+```
+ok - fm-session-cost measures a real Claude 2.1.287 (Claude Code) transcript (22798 tokens)
+```

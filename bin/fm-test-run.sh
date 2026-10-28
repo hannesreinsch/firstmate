@@ -385,7 +385,7 @@ family_for_basename() {
     fm-secondmate-busy-contract-live-e2e.test.sh|\
     fm-calm-claude-mod-plugin.test.sh|fm-calm-claude-mod-live-e2e.test.sh|\
     fm-calm-pi-queue-retention-live-e2e.test.sh|\
-    fm-herdr-submit-confirm-live-e2e.test.sh|\
+    fm-herdr-submit-confirm-live-e2e.test.sh|fm-session-cost-claude-live-e2e.test.sh|\
     fm-backend-rex-composer-live-e2e.test.sh|\
     fm-claude-exit-picker-live-e2e.test.sh|\
     fm-watch-wedge-cap-live.test.sh)
@@ -448,7 +448,8 @@ family_for_basename() {
     fm-send-remote-delivery.test.sh|fm-spawn-pool-base-freshen.test.sh|\
     fm-test-fixture-cleanup.test.sh|fm-test-fixtures.test.sh|\
     fm-voice-relay.test.sh|fm-wake-drain-open-decisions-cursor.test.sh|\
-    fm-wake-drain-open-decisions.test.sh|fm-wake-drain-outcome-backstop.test.sh)
+    fm-wake-drain-open-decisions.test.sh|fm-wake-drain-outcome-backstop.test.sh|\
+    fm-session-cost.test.sh)
       printf '%s\n' standalone
       ;;
     *)
@@ -874,6 +875,8 @@ tests/fm-send-remote-delivery.test.sh 31964
 tests/fm-send-resolve-key.test.sh 47317
 tests/fm-send-secondmate-marker-herdr-e2e.test.sh 80
 tests/fm-send-secondmate-marker.test.sh 7574
+tests/fm-session-cost-claude-live-e2e.test.sh 177
+tests/fm-session-cost.test.sh 2638
 tests/fm-session-lock-ancestry.test.sh 18918
 tests/fm-session-start.test.sh 363574
 tests/fm-sessionstart-hook-live-e2e.test.sh 50
