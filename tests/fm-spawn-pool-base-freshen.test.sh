@@ -747,6 +747,81 @@ test_pool_slot_claim_follows_the_spawn_outcome() {
   pass "a Treehouse slot claim names the launched task, refuses when unclaimable, and is dropped by a locked abort"
 }
 
+# Treehouse decides a slot is free from the processes running inside it, so a
+# live task whose worker happens to have no process in its copy - parked,
+# relaunched after a reboot, or between turns - reads as an available slot and
+# is handed to the next spawn. The spawn must then refuse rather than claim the
+# slot over the live task's record and move its copy to another branch, whether
+# that record sits in this home under its own claim or in another local home
+# with no claim at all.
+test_spawn_refuses_a_slot_a_live_task_records() {
+  local rec id out status before mate
+
+  id='pool-slot-held-r1'
+  rec=$(make_case slot-held "$id")
+  read_case_record "$rec"
+  lay_out_as_pool_slot
+  fm_write_meta "$HOME_DIR/state/holder-a.meta" "window=w" "project=$PROJECT_DIR" \
+    "worktree=$POOL_DIR" "kind=ship"
+  printf 'task=holder-a\nhome=%s\n' "$HOME_DIR" > "$SLOT_CLAIM"
+  git -C "$POOL_DIR" checkout --quiet -b fm/holder-a
+  cat > "$FAKEBIN_DIR/treehouse" <<SH
+#!/usr/bin/env bash
+printf '%s\\n' "\$*" >> '$CASE_DIR/treehouse.calls'
+SH
+  chmod +x "$FAKEBIN_DIR/treehouse"
+  before=$(git -C "$POOL_DIR" rev-parse HEAD)
+  out=$(run_spawn "$id" --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn launched into a slot a live task in this home still records"
+  assert_contains "$out" "task holder-a" "the refusal did not name the live task holding the slot"$'\n'"$out"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "spawn published a record for a slot another task holds"
+  grep -Fxq -- "task=holder-a" "$SLOT_CLAIM" \
+    || fail "spawn replaced the live task's slot claim: $(cat "$SLOT_CLAIM")"
+  [ "$(git -C "$POOL_DIR" branch --show-current)" = fm/holder-a ] \
+    || fail "spawn moved the live task's copy off its branch"
+  [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$before" ] \
+    || fail "spawn moved the live task's HEAD"
+  grep -Fxq -- "lease 1 --lease-holder holder-a" "$CASE_DIR/treehouse.calls" \
+    || fail "spawn did not lease the refused slot in place to the task holding it: $(cat "$CASE_DIR/treehouse.calls" 2>/dev/null)"
+  assert_contains "$out" "leased in place to holder-a" "the refusal did not report the in-place lease"
+
+  id='pool-slot-held-mate-r1'
+  rec=$(make_case slot-held-mate "$id")
+  read_case_record "$rec"
+  lay_out_as_pool_slot
+  mate="$CASE_DIR/mate"
+  mkdir -p "$mate/state" "$mate/data"
+  printf -- '- mate - a local mate (home: %s; scope: project work; projects: project; added 2026-09-01)\n' "$mate" \
+    > "$HOME_DIR/data/secondmates.md"
+  fm_write_meta "$mate/state/holder-m.meta" "window=w" "project=$PROJECT_DIR" \
+    "worktree=$POOL_DIR" "kind=ship"
+  before=$(git -C "$POOL_DIR" rev-parse HEAD)
+  out=$(run_spawn "$id" --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn launched into a slot a live task in another local home still records"
+  assert_contains "$out" "task holder-m" "the refusal did not name the other home's live task"$'\n'"$out"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "spawn published a record for a slot another home's task holds"
+  [ ! -e "$SLOT_CLAIM" ] || fail "spawn claimed a slot another home's task holds: $(cat "$SLOT_CLAIM")"
+  [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$before" ] \
+    || fail "spawn moved the other home's task copy"
+
+  # A registered home that cannot be read could hold the slot, so it refuses.
+  id='pool-slot-unreadable-r1'
+  rec=$(make_case slot-unreadable "$id")
+  read_case_record "$rec"
+  lay_out_as_pool_slot
+  printf -- '- gone - a local mate (home: %s; scope: project work; projects: project; added 2026-09-01)\n' \
+    "$CASE_DIR/missing-home" > "$HOME_DIR/data/secondmates.md"
+  out=$(run_spawn "$id" --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn launched although a registered local home could not be read"
+  assert_contains "$out" "cannot all be read" "the refusal did not name the unreadable records"$'\n'"$out"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "spawn published a record without proving the slot free"
+  [ ! -e "$SLOT_CLAIM" ] || fail "spawn claimed a slot it could not prove free"
+  pass "spawn refuses a Treehouse slot that a live task in any local home records, and leases it to that task"
+}
+
 # A stateful terminal and pool stand-in for the refused-launch sequence. Each
 # window is a file recording its stable id and the path its shell sits in; a
 # `treehouse get` typed into a window moves it into the lowest slot no live
@@ -1176,6 +1251,7 @@ test_scout_base_branch_refused_on_gerrit_forge() {
 
 test_remote_seeded_home_spawns_from_treehouse_pool
 test_pool_slot_claim_follows_the_spawn_outcome
+test_spawn_refuses_a_slot_a_live_task_records
 test_refused_launch_leaves_the_pool_for_a_retry_and_a_second_task
 test_refused_launch_spares_per_id_paths_under_a_contended_spawn_lock
 test_non_polytoken_refused_launch_keeps_its_window

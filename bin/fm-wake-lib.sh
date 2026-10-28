@@ -1701,6 +1701,8 @@ fm_treehouse_slot_owner_marker() {  # <worktree>
 }
 
 # Claim a pool slot for a task, replacing whatever the previous holder left.
+# The caller first proves no other task record still names the slot
+# (fm_treehouse_slot_recorded_by below), so a replaced claim is a stale one.
 # The rename is atomic, so a reader either sees the old claim or the new one.
 fm_treehouse_slot_owner_claim() {  # <worktree> <task-id> <home>
   local worktree=$1 id=$2 home=$3 marker tmp
@@ -1768,6 +1770,69 @@ fm_treehouse_slot_owner_release() {  # <worktree> <task-id>
   [ "$FM_TREEHOUSE_SLOT_OWNER" = mine ] || return 0
   marker=$(fm_treehouse_slot_owner_marker "$worktree") || return 0
   rm -f "$marker" 2>/dev/null || true
+}
+
+# Find another task record that names a pool slot as its worktree= or home=.
+# Treehouse's view of a slot is no substitute: an interactive acquire's lease is
+# the processes running inside the slot, so a live task whose worker has no
+# process in its copy at that moment (parked, relaunched after a reboot, between
+# turns) reads as available. The task records are what say the slot is still
+# taken.
+#
+# Scans every local Firstmate state directory (fm_local_firstmate_state_dirs
+# <first-state>), plus the claimant's own home when the slot's claim names a
+# task outside those, because a claim can come from a home this machine does
+# not register. <own-meta> is the caller's own record, skipped by identity.
+# Returns 0 with FM_TREEHOUSE_SLOT_RECORD_ID, FM_TREEHOUSE_SLOT_RECORD_FIELD,
+# and FM_TREEHOUSE_SLOT_RECORD_META naming the first other record found, 1 when
+# none names the slot, and 2 with FM_LOCAL_FIRSTMATE_ERROR when the local homes
+# cannot be enumerated, so a caller refuses rather than reading an unknown home
+# as one with no tasks. Requires bin/fm-backend.sh and
+# bin/fm-secondmate-registry-lib.sh to be sourced first.
+# shellcheck disable=SC2034 # Output globals, read by the sourcing caller.
+fm_treehouse_slot_recorded_by() {  # <worktree> <own-meta> <first-state>
+  local worktree=$1 own=$2 first=$3 slot state other field other_path other_slot
+  local claim_home known
+  local -a states
+  FM_TREEHOUSE_SLOT_RECORD_ID=
+  FM_TREEHOUSE_SLOT_RECORD_FIELD=
+  FM_TREEHOUSE_SLOT_RECORD_META=
+  slot=$(CDPATH='' cd -- "$worktree" 2>/dev/null && pwd -P) || return 1
+  fm_local_firstmate_state_dirs "$first" || return 2
+  states=("${FM_LOCAL_FIRSTMATE_STATES[@]}")
+  # Read the claimant's home without disturbing a caller's slot-owner verdict.
+  claim_home=$(
+    fm_treehouse_slot_owner_state "$slot" ""
+    printf '%s' "$FM_TREEHOUSE_SLOT_OWNER_HOME"
+  )
+  if [ -n "$claim_home" ] && [ -d "$claim_home/state" ]; then
+    known=0
+    for state in "${states[@]}"; do
+      [ "$state" -ef "$claim_home/state" ] && known=1
+    done
+    [ "$known" = 1 ] || states+=("$claim_home/state")
+  fi
+  for state in "${states[@]}"; do
+    for other in "$state"/*.meta; do
+      [ -f "$other" ] && [ ! -L "$other" ] || continue
+      # Identity, not spelling: the same record reached through a differently
+      # resolved state dir (e.g. a symlinked $FM_HOME) is still this record. A
+      # differently named hardlink is another task's record, so the name must
+      # match too.
+      [ "${other##*/}" = "${own##*/}" ] && [ "$other" -ef "$own" ] && continue
+      for field in worktree home; do
+        other_path=$(fm_meta_get "$other" "$field")
+        [ -n "$other_path" ] || continue
+        other_slot=$(CDPATH='' cd -- "$other_path" 2>/dev/null && pwd -P) || continue
+        [ "$other_slot" = "$slot" ] || continue
+        FM_TREEHOUSE_SLOT_RECORD_ID=$(basename "$other" .meta)
+        FM_TREEHOUSE_SLOT_RECORD_FIELD=$field
+        FM_TREEHOUSE_SLOT_RECORD_META=$other
+        return 0
+      done
+    done
+  done
+  return 1
 }
 
 fm_failure_episode_reset() {
