@@ -32,8 +32,9 @@ make_home() {
   printf '%s\n' "$home"
 }
 
-# make_probes <dir> <load1> <mem-free-pct> <cores> <avail-kb>: fake Darwin
-# probes. An empty value makes that probe fail.
+# make_probes <dir> <load1> <mem-free-pct> <cores> <avail-kb> [important-bytes]:
+# fake Darwin probes. An empty value makes that probe fail; without
+# important-bytes the osascript capacity probe fails and df decides.
 make_probes() {
   local fakebin
   fakebin=$(fm_fakebin "$1")
@@ -54,6 +55,11 @@ SH
 [ -n "$5" ] || exit 1
 echo "Filesystem 1024-blocks Used Available Capacity Mounted"
 echo "/dev/fake 999999999 1 $5 1% /"
+SH
+  cat > "$fakebin/osascript" <<SH
+#!/usr/bin/env bash
+[ -n "${6:-}" ] || exit 1
+echo "${6:-}"
 SH
   chmod +x "$fakebin"/*
   printf '%s\n' "$fakebin"
@@ -121,6 +127,18 @@ test_host_constraints_close_lanes() {
   out=$(run_capacity "$home" "$fakebin")
   assert_contains "$out" 'free_lanes=5 reason=ok ' "values just inside thresholds must not constrain"
   pass "cpu, memory, and disk pressure close every lane and are named"
+}
+
+test_darwin_disk_counts_purgeable_space() {
+  local home fakebin out
+  home=$(make_home purgeable 1 0)
+  printf '4\n' > "$home/config/lane-capacity"
+  # df says 1 GB free; macOS says 40 GB are free for important usage.
+  fakebin=$(make_probes "$TMP_ROOT/p-purge" 0.50 60 8 1048576 42949672960)
+  out=$(run_capacity "$home" "$fakebin")
+  assert_contains "$out" 'disk_free_mb=40960' "the important-usage capacity must win over df on Darwin"
+  assert_contains "$out" 'free_lanes=3 reason=ok ' "purgeable space must not close lanes"
+  pass "on Darwin the disk probe counts purgeable space as free"
 }
 
 test_unavailable_probes_degrade() {
@@ -528,6 +546,7 @@ test_no_target_prints_counts_only
 test_no_target_never_prints_constrained_line
 test_target_yields_open_lanes_and_full
 test_host_constraints_close_lanes
+test_darwin_disk_counts_purgeable_space
 test_unavailable_probes_degrade
 test_invalid_target_is_reported
 test_config_keys_parse_and_refuse_guessing

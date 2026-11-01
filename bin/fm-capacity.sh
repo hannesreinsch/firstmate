@@ -69,7 +69,8 @@
 # kern.memorystatus_level, hw.logicalcpu, hw.memsize, kern.boottime); other
 # systems read /proc/loadavg, /proc/meminfo (MemAvailable/MemTotal),
 # /proc/uptime, /proc/stat btime and /proc/sys/kernel/random/boot_id; cores
-# come from getconf with a sysctl fallback; disk comes from df -Pk.
+# come from getconf with a sysctl fallback; disk comes from df -Pk, on Darwin
+# from the "important usage" capacity first (purgeable space counts as free).
 #
 # --json prints one fm-lane-capacity.v1 object (needs jq):
 #   schema, generated_epoch (this host's clock), home ("main", or the id in
@@ -330,7 +331,16 @@ else
 fi
 
 disk_free_mb=unknown
-v=$(df -Pk "$FM_HOME" 2>/dev/null | awk 'NR==2{print int($4 / 1024)}')
+v=
+if [ "$os" = Darwin ]; then
+  # macOS's "available for important usage" figure counts purgeable space
+  # (local Time Machine snapshots, caches) as free: macOS frees it for a
+  # write that needs it. df counts it as used, so after a big move off the
+  # disk it reported 24 GB free while 165 GB were usable.
+  v=$(osascript -l JavaScript -e 'function run(a){ObjC.import("Foundation");const k="NSURLVolumeAvailableCapacityForImportantUsageKey";const r=$.NSURL.fileURLWithPath(a[0]).resourceValuesForKeysError([k],null);return r.isNil()?"":String(ObjC.unwrap(r.objectForKey(k)))}' "$FM_HOME" 2>/dev/null) || v=
+  if is_uint "$v"; then v=$((v / 1048576)); else v=; fi
+fi
+[ -n "$v" ] || v=$(df -Pk "$FM_HOME" 2>/dev/null | awk 'NR==2{print int($4 / 1024)}')
 is_uint "$v" && disk_free_mb=$v
 probe_disks=
 [ "$disk_free_mb" = unknown ] || probe_disks="home	$(awk -v m="$disk_free_mb" 'BEGIN{printf "%.1f", m / 1024}')
