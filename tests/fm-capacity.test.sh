@@ -138,6 +138,9 @@ test_darwin_disk_counts_purgeable_space() {
   out=$(run_capacity "$home" "$fakebin")
   assert_contains "$out" 'disk_free_mb=40960' "the important-usage capacity must win over df on Darwin"
   assert_contains "$out" 'free_lanes=3 reason=ok ' "purgeable space must not close lanes"
+  fakebin=$(make_probes "$TMP_ROOT/p-zero" 0.50 60 8 2097152 0)
+  out=$(run_capacity "$home" "$fakebin")
+  assert_contains "$out" 'disk_free_mb=2048' "a 0 from macOS is unknown, so df must decide"
   pass "on Darwin the disk probe counts purgeable space as free"
 }
 

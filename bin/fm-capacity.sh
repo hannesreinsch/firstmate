@@ -338,7 +338,8 @@ if [ "$os" = Darwin ]; then
   # write that needs it. df counts it as used, so after a big move off the
   # disk it reported 24 GB free while 165 GB were usable.
   v=$(osascript -l JavaScript -e 'function run(a){ObjC.import("Foundation");const k="NSURLVolumeAvailableCapacityForImportantUsageKey";const r=$.NSURL.fileURLWithPath(a[0]).resourceValuesForKeysError([k],null);return r.isNil()?"":String(ObjC.unwrap(r.objectForKey(k)))}' "$FM_HOME" 2>/dev/null) || v=
-  if is_uint "$v"; then v=$((v / 1048576)); else v=; fi
+  # A volume that does not know the key answers 0 or nothing: df then.
+  if is_uint "$v" && [ "$v" -gt 0 ]; then v=$((v / 1048576)); else v=; fi
 fi
 [ -n "$v" ] || v=$(df -Pk "$FM_HOME" 2>/dev/null | awk 'NR==2{print int($4 / 1024)}')
 is_uint "$v" && disk_free_mb=$v
